@@ -6,13 +6,15 @@
 
 #include <cmath>
 
+namespace {
+
 const cv::Point2f &getPoint(const std::vector<cv::Point2f> &points,
     size_t stride, size_t y, size_t x) {
   return points[y * stride + x];
 }
 
 const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
-    const cv::Size &screenSize, float C) {
+    const cv::Size &screenSize = cv::Size(1920, 1080), float C = 2.2) {
   float hRatio = (float)originalSize.height / (float)screenSize.height;
   float wRatio = (float)originalSize.width / (float)screenSize.width;
 
@@ -21,13 +23,7 @@ const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
       round((float)originalSize.width / ratio));
 }
 
-void displayResult(const std::string &windowName, const cv::Mat &result) {
-  cv::Mat resized;
-  cv::resize(result, resized, calculateSizeForDisplaying(result.size()));
-  cv::imshow(windowName, result);
-}
-
-static void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
+void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
     const cv::Point2f &second, const cv::Point2f &third, int &istart,
     int &iend, int &istep, int &jstart, int &jend, int &jstep) {
   if (byRow) {
@@ -100,7 +96,7 @@ static void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
   }
 }
 
-static void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
+void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
     bool &byRow, int &istart, int &iend, int &istep, int &jstart, int &jend,
     int &jstep) {
   byRow = true;
@@ -167,6 +163,15 @@ std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
     const std::vector<std::vector<cv::Point2f>> &points) {
   return std::make_pair(points.back()[0], points.back()[1]);
 }
+
+}
+
+void displayResult(const std::string &windowName, const cv::Mat &result) {
+  cv::Mat resized;
+  cv::resize(result, resized, calculateSizeForDisplaying(result.size()));
+  cv::imshow(windowName, result);
+}
+
 
 std::vector<cv::Point2f> extractCorners(
     const std::vector<std::vector<cv::Point2f>> &points) {
