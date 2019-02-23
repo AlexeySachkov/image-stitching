@@ -15,4 +15,8 @@ const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
 
 void displayResult(const std::string &windowName, const cv::Mat &result);
 
+std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
+    const std::vector<cv::Point2f> &chessboardCorners,
+    const cv::Size &boardSize);
+
 #endif // __INCLUDE_UTILS_HPP__
