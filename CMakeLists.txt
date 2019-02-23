@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.11)
 
 project("ImageStitching" CXX)
 
+set(CMAKE_CXX_STANDARD 11)
+
 find_package(OpenCV REQUIRED)
+
+message(STATUS "Found OpenCV ${OpenCV_VERSION}")
+message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
+message(STATUS "OpenCV_INLCUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
 set(SOURCE_FILES
   main.cpp)

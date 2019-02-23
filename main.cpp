@@ -1,11 +1,9 @@
 #include <iostream>
 #include <vector>
 
-#include <opencv2\video.hpp>
-#include <opencv2\videoio.hpp>
-#include <opencv2\stitching.hpp>
-#include <opencv2\calib3d.hpp>
-#include <opencv2\highgui.hpp>
+#include "opencv2/video/video.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/highgui/highgui.hpp"
 
 using namespace std;
 using namespace cv;
