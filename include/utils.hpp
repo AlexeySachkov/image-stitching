@@ -47,4 +47,8 @@ struct corners_info_t {
   float width, height;
 };
 
+bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
+  cv::Mat &result, std::vector<cv::Point2f> &rectangle,
+  std::vector<cv::Point2f> &corners);
+
 #endif // __INCLUDE_UTILS_HPP__
