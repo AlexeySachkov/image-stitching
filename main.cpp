@@ -1,9 +1,11 @@
-#include <iostream>
-#include <vector>
+#include "utils.hpp"
 
 #include "opencv2/video/video.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/highgui/highgui.hpp"
+
+#include <iostream>
+#include <vector>
 
 using namespace std;
 using namespace cv;
@@ -12,40 +14,6 @@ static bool runCalibration(const Size imageSize, Mat& cameraMatrix, Mat& distCoe
 
 const Size bSize(5, 4);
 const int squareSize = 100;
-
-const Point2f &getPoint(const vector<Point2f> &v, const Size &boardSize, int y, int x) {
-	return v[y * boardSize.width + x];
-}
-
-const Point2f &getPointNew(const vector<Point2f> &v, int stride, int y, int x) {
-	return v[y * stride + x];
-}
-
-
-Size calculateSizeToDisplay(const Size &original, int H = 1920, int W = 1080, float C = 2.2) {
-	float hRatio = original.height / H;
-	float wRatio = original.width / W;
-
-	float ratio = fmax(hRatio, wRatio) + C;
-	return Size(original.height / ratio, original.width / ratio);
-}
-
-Size calculateSizeToDisplay(const Mat &c, int H = 1920, int W = 1080, float C = 2.2) {
-	vector<Point2f> corners = (vector<Point2f>)c;
-	float minX = fmin(corners[0].x, corners[3].x);
-	float maxX = fmax(corners[1].x, corners[2].x);
-	float minY = fmin(corners[0].y, corners[1].y);
-	float maxY = fmax(corners[2].y, corners[3].y);
-	float newWidth = maxX - minX;
-	float newHeight = maxY - minY;
-	return calculateSizeToDisplay(Size(newHeight, newWidth), H, W, C);
-}
-
-inline void displayResult(const std::string &windowName, const Mat &result) {
-	Mat resized;
-	resize(result, resized, calculateSizeToDisplay(Size(result.rows, result.cols)));
-	imshow(windowName, resized);
-}
 
 struct corners_info_t {
 	corners_info_t() = delete;
@@ -185,15 +153,15 @@ void getSteps(const vector<Point2f> &p, const Size &bs, bool &byRow, int &istart
 	}
 
 	if (byRow) {
-		Point2f first = getPointNew(p, bs.width, 0, 0);
-		Point2f second = getPointNew(p, bs.width, 0, 1);
-		Point2f third = getPointNew(p, bs.width, 1, 0);
+		Point2f first = getPoint(p, bs.width, 0, 0);
+		Point2f second = getPoint(p, bs.width, 0, 1);
+		Point2f third = getPoint(p, bs.width, 1, 0);
 		getSteps(true, bs, first, second, third, istart, iend, istep, jstart, jend, jstep);
 	} else {
 		// by column
-		Point2f first = getPointNew(p, bs.height, 0, 0);
-		Point2f second = getPointNew(p, bs.height, 0, 1);
-		Point2f third = getPointNew(p, bs.height, 1, 0);
+		Point2f first = getPoint(p, bs.height, 0, 0);
+		Point2f second = getPoint(p, bs.height, 0, 1);
+		Point2f third = getPoint(p, bs.height, 1, 0);
 		getSteps(false, bs, first, second, third, istart, iend, istep, jstart, jend, jstep);
 	}
 }
@@ -209,13 +177,13 @@ vector<vector<Point2f>> organize(const vector<Point2f> &p, const Size &bs) {
 	if (isByRow) {
 		for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
 			for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
-				res[i][j] = getPointNew(p, bs.width, ii, jj);
+				res[i][j] = getPoint(p, bs.width, ii, jj);
 			}
 		}
 	} else {
 		for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
 			for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-				res[i][j] = getPointNew(p, bs.height, ii, jj);
+				res[i][j] = getPoint(p, bs.height, ii, jj);
 			}
 		}
 	}

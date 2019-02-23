@@ -11,9 +11,12 @@ message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 message(STATUS "OpenCV_INLCUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
 set(SOURCE_FILES
-  main.cpp)
+  main.cpp
+  utils.cpp)
 
-include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(
+  ${OpenCV_INCLUDE_DIRS}
+  include/)
 
 add_executable(stitch ${SOURCE_FILES})
 
