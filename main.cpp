@@ -44,21 +44,6 @@ void getImageCorners(const Mat &image, vector<Point2f> &corners) {
 	corners.push_back(Point2f(0, 0)); // top left
 }
 
-pair<Point2f, Point2f> getTwoPointsNew(const vector<vector<Point2f>> &points) {
-	return make_pair(points[points.size() - 1][0], points[points.size() - 1][1]);
-}
-
-vector<Point2f> extractCornersNew(const vector<vector<Point2f>> &points) {
-	vector<Point2f> res;
-	int rows = points.size();
-	int cols = points.front().size();
-	res.push_back(points[rows - 1][0]); // bottom left
-	res.push_back(points[rows - 1][cols - 1]); // bottom right
-	res.push_back(points[0][cols - 1]); // top right
-	res.push_back(points[0][0]); // top left
-	return res;
-}
-
 bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vector<Point2f> &rectangle, vector<Point2f> &corners) {
 	// search for chessboard corners
 	vector<Point2f> chessboardCorners;
@@ -83,7 +68,7 @@ bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vec
 		}
 	}
 
-	pair<Point2f, Point2f> twoPoints = getTwoPointsNew(orderChessboardCorners(chessboardCorners, boardSize));
+	pair<Point2f, Point2f> twoPoints = getTwoBottomLeftPoints(orderChessboardCorners(chessboardCorners, boardSize));
 
 	// assume that we could esimate board size in pixel using two leftmost points at the bottom of the chessboard
 	Point2f blp = twoPoints.first;
@@ -105,7 +90,7 @@ bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vec
 		circle(temp, targetRectangleCorners[i], 5 * (i + 1), Scalar(255, 255, 0), 5 + 2 * i);
 	}
 
-	vector<Point2f> currentRectrangleCorners = extractCornersNew(orderChessboardCorners(chessboardCorners, boardSize));
+	vector<Point2f> currentRectrangleCorners = extractCorners(orderChessboardCorners(chessboardCorners, boardSize));
 	
 	for (int i = 0; i < 4; ++i) {
 		line(temp, currentRectrangleCorners[i], currentRectrangleCorners[(i + 1) % 4], Scalar(0, 0, 255), 5 + 2 * i);
