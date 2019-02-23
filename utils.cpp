@@ -14,13 +14,19 @@ const cv::Point2f &getPoint(const std::vector<cv::Point2f> &points,
 }
 
 const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
-    const cv::Size &screenSize = cv::Size(1920, 1080), float C = 2.2) {
-  float hRatio = (float)originalSize.height / (float)screenSize.height;
-  float wRatio = (float)originalSize.width / (float)screenSize.width;
+    const cv::Size &screenSize = cv::Size(1920, 1080)) {
+  // To make looking at several images eaiser, each of
+  // them should not occupy more than half of the screen.
+  // For height this restriction is relaxed
+  float targetH = (float)screenSize.height * 0.7;
+  float targetW = (float)screenSize.width * 0.5;
 
-  float ratio = fmax(hRatio, wRatio) + C;
-  return cv::Size(round((float)originalSize.height / ratio),
-      round((float)originalSize.width / ratio));
+  float hRatio = originalSize.height / targetH;
+  float wRatio = originalSize.width / targetW;
+
+  float ratio = fmax(hRatio, wRatio);
+  return cv::Size((int)round(originalSize.height / ratio),
+      (int)round(originalSize.width / ratio));
 }
 
 void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
@@ -169,7 +175,7 @@ std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
 void displayResult(const std::string &windowName, const cv::Mat &result) {
   cv::Mat resized;
   cv::resize(result, resized, calculateSizeForDisplaying(result.size()));
-  cv::imshow(windowName, result);
+  cv::imshow(windowName, resized);
 }
 
 
