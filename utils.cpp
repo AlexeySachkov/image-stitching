@@ -161,3 +161,19 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
 
   return result;
 }
+
+std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
+    const std::vector<std::vector<cv::Point2f>> &points) {
+  return std::make_pair(points.back()[0], points.back()[1]);
+}
+
+std::vector<cv::Point2f> extractCorners(
+    const std::vector<std::vector<cv::Point2f>> &points) {
+  std::vector<cv::Point2f> result;
+  result.push_back(points.back().front()); // bottom left
+  result.push_back(points.back().back()); // bottom right
+  result.push_back(points.front().back()); // top right
+  result.push_back(points.front().front()); // top left
+
+  return result;
+}

@@ -19,4 +19,10 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
     const std::vector<cv::Point2f> &chessboardCorners,
     const cv::Size &boardSize);
 
+std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
+    const std::vector<std::vector<cv::Point2f>> &points);
+
+std::vector<cv::Point2f> extractCorners(
+    const std::vector<std::vector<cv::Point2f>> &points);
+
 #endif // __INCLUDE_UTILS_HPP__
