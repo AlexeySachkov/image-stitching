@@ -60,141 +60,6 @@ bool collinear(const Point2f &a, const Point2f &b, const Point2f &c) { //double 
 	//return fabs((a.y - b.y) * (a.x - c.x) - (a.y - c.y) * (a.x - b.x)) <= 1e-9;
 }
 
-void getSteps(bool byRow, const Size &bs, const Point2f &first, const Point2f &second, const Point2f &third, int &istart, int &iend, int &istep, int &jstart, int &jend, int &jstep) {
-	if (byRow) {
-		// A B
-		// C
-		// where A - first, B - second, C - third
-		// AB - row
-		// AC - column
-		int w = (byRow) ? bs.width : bs.height;
-		int h = (byRow) ? bs.height : bs.width;
-		if (first.x < second.x) {
-			// columns goes from left to right
-			jstart = 0;
-			jend = w;
-			jstep = 1;
-		}
-		else {
-			// columns goes from right to left
-			jstart = w - 1;
-			jend = -1;
-			jstep = -1;
-		}
-
-		if (first.y < third.y) {
-			// rows goes from top to bottom
-			istart = 0;
-			iend = h;
-			istep = 1;
-		}
-		else {
-			// rows goes from bottom to top
-			istart = h - 1;
-			iend = -1;
-			istep = -1;
-		}
-	} else {
-		// by column
-		// A B
-		// C
-		// where A - first, B - second, C - third
-		// AB - column
-		// AC - row
-		int w = (byRow) ? bs.width : bs.height;
-		int h = (byRow) ? bs.height : bs.width;
-		if (first.x > third.x) {
-			// columns goes from left to right
-			jstart = 0;
-			jend = w;
-			jstep = 1;
-		}
-		else {
-			// columns goes from right to left
-			jstart = w - 1;
-			jend = -1;
-			jstep = -1;
-		}
-
-		if (first.y < second.y) {
-			// rows goes from top to bottom
-			istart = 0;
-			iend = h;
-			istep = 1;
-		}
-		else {
-			// rows goes from bottom to top
-			istart = h - 1;
-			iend = -1;
-			istep = -1;
-		}
-	}
-	
-	cout << "byRow: " << byRow << endl;
-	cout << "getSteps: " << first << " " << second << " " << third << endl;
-	cout << "i: " << istart << " " << iend << " " << istep << endl;
-	cout << "j: " << jstart << " " << jend << " " << jstep << endl;
-}
-
-void getSteps(const vector<Point2f> &p, const Size &bs, bool &byRow, int &istart, int &iend, int &istep, int &jstart, int &jend, int &jstep) {
-	byRow = true;
-	for (int i = 1; i < bs.width; ++i) {
-		if (p[i - 1].x > p[i].x) {
-			byRow = false;
-		}
-	}
-	if (!byRow) {
-		byRow = true;
-		for (int i = 1; i < bs.width; ++i) {
-			if (p[i - 1].x < p[i].x) {
-				byRow = false;
-			}
-		}
-	}
-
-	if (byRow) {
-		Point2f first = getPoint(p, bs.width, 0, 0);
-		Point2f second = getPoint(p, bs.width, 0, 1);
-		Point2f third = getPoint(p, bs.width, 1, 0);
-		getSteps(true, bs, first, second, third, istart, iend, istep, jstart, jend, jstep);
-	} else {
-		// by column
-		Point2f first = getPoint(p, bs.height, 0, 0);
-		Point2f second = getPoint(p, bs.height, 0, 1);
-		Point2f third = getPoint(p, bs.height, 1, 0);
-		getSteps(false, bs, first, second, third, istart, iend, istep, jstart, jend, jstep);
-	}
-}
-
-vector<vector<Point2f>> organize(const vector<Point2f> &p, const Size &bs) {
-	bool isByRow = false;
-
-	vector<vector<Point2f>> res(bs.height, vector<Point2f>(bs.width));
-	int jstart, jend, jstep;
-	int istart, iend, istep;
-	getSteps(p, bs, isByRow, istart, iend, istep, jstart, jend, jstep);
-
-	if (isByRow) {
-		for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-			for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
-				res[i][j] = getPoint(p, bs.width, ii, jj);
-			}
-		}
-	} else {
-		for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
-			for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-				res[i][j] = getPoint(p, bs.height, ii, jj);
-			}
-		}
-	}
-
-	cout << "organize result: " << endl;
-	for (auto &R : res) {
-		cout << R << endl;
-	}
-	return res;
-}
-
 vector<vector<int>> splitByRows(const vector<Point2f> &p, float yrange = 100) {
 	vector<vector<int>> res;
 	vector<int> base;
@@ -344,7 +209,7 @@ bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vec
 		}
 	}
 
-	pair<Point2f, Point2f> twoPoints = getTwoPointsNew(organize(chessboardCorners, boardSize));
+	pair<Point2f, Point2f> twoPoints = getTwoPointsNew(orderChessboardCorners(chessboardCorners, boardSize));
 
 	// assume that we could esimate board size in pixel using two leftmost points at the bottom of the chessboard
 	Point2f blp = twoPoints.first;
@@ -366,7 +231,7 @@ bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vec
 		circle(temp, targetRectangleCorners[i], 5 * (i + 1), Scalar(255, 255, 0), 5 + 2 * i);
 	}
 
-	vector<Point2f> currentRectrangleCorners = extractCornersNew(organize(chessboardCorners, boardSize));
+	vector<Point2f> currentRectrangleCorners = extractCornersNew(orderChessboardCorners(chessboardCorners, boardSize));
 	
 	for (int i = 0; i < 4; ++i) {
 		line(temp, currentRectrangleCorners[i], currentRectrangleCorners[(i + 1) % 4], Scalar(0, 0, 255), 5 + 2 * i);
