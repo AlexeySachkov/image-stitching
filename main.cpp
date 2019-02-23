@@ -13,35 +13,6 @@ using namespace cv;
 const Size bSize(5, 4);
 const int squareSize = 100;
 
-struct corners_info_t {
-  corners_info_t() = delete;
-  corners_info_t(const vector<Point2f> &corners) {
-    minX = fmin(fmin(corners[0].x, corners[1].x), fmin(corners[2].x, corners[3].x));
-    maxX = fmax(fmax(corners[0].x, corners[1].x), fmax(corners[2].x, corners[3].x));
-    minY = fmin(fmin(corners[0].y, corners[1].y), fmin(corners[2].y, corners[3].y));
-    maxY = fmax(fmax(corners[0].y, corners[1].y), fmax(corners[2].y, corners[3].y));
-    width = maxX - minX;
-    height = maxY - minY;
-  }
-
-  void print() {
-    cout << "X: " << minX << " " << maxX << endl;
-    cout << "Y: " << minY << " " << maxY << endl;
-    cout << "H x W: " << height << " " << width << endl;
-  }
-
-  float minX, maxX, minY, maxY;
-  float width, height;
-};
-
-void getImageCorners(const Mat &image, vector<Point2f> &corners) {
-  corners.clear();
-  corners.push_back(Point2f(0, image.rows)); // bottom left
-  corners.push_back(Point2f(image.cols, image.rows)); // bottom right
-  corners.push_back(Point2f(image.cols, 0)); // top right
-  corners.push_back(Point2f(0, 0)); // top left
-}
-
 bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vector<Point2f> &rectangle, vector<Point2f> &corners) {
   // search for chessboard corners
   vector<Point2f> chessboardCorners;
@@ -102,8 +73,7 @@ bool projectToTheFloor(const Mat &image, const Size &boardSize, Mat &result, vec
   // find preliminary homography matrix
   Mat preH = findHomography(Mat(currentRectrangleCorners), Mat(targetRectangleCorners), CV_RANSAC);
 
-  vector<Point2f> currentCorners;
-  getImageCorners(image, currentCorners);
+  vector<Point2f> currentCorners = extractCorners(image);
 
   Mat tcorners;
   perspectiveTransform(Mat(currentCorners), tcorners, preH);
@@ -176,15 +146,13 @@ int main()
   }
 
   Mat preH = findHomography(Mat(rotatedRect2), Mat(rectangle1), CV_RANSAC);
-  vector<Point2f> secondCorners;
-  getImageCorners(result2, secondCorners);
+  vector<Point2f> secondCorners = extractCorners(result2);
   Mat tcorners;
   perspectiveTransform(Mat(secondCorners), tcorners, preH);
   vector<Point2f> newSecondCorners = (vector<Point2f>(tcorners));
   corners_info_t ci(newSecondCorners);
 
-  vector<Point2f> firstCorners;
-  getImageCorners(result1, firstCorners);
+  vector<Point2f> firstCorners = extractCorners(result1);
   corners_info_t fci(firstCorners);
 
   float minX = fmin(ci.minX, fci.minX);

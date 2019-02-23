@@ -177,3 +177,12 @@ std::vector<cv::Point2f> extractCorners(
 
   return result;
 }
+
+std::vector<cv::Point2f> extractCorners(const cv::Mat &image) {
+  std::vector<cv::Point2f> result;
+  result.push_back(cv::Point2f(0, image.rows)); // bottom left
+  result.push_back(cv::Point2f(image.cols, image.rows)); // bottom right
+  result.push_back(cv::Point2f(image.cols, 0)); // top right
+  result.push_back(cv::Point2f(0, 0)); // top left
+  return result;
+}

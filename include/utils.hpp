@@ -25,4 +25,26 @@ std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
 std::vector<cv::Point2f> extractCorners(
     const std::vector<std::vector<cv::Point2f>> &points);
 
+std::vector<cv::Point2f> extractCorners(const cv::Mat &image);
+
+struct corners_info_t {
+  corners_info_t() = delete;
+  corners_info_t(const std::vector<cv::Point2f> &corners) {
+    minX = fmin(fmin(corners[0].x, corners[1].x),
+        fmin(corners[2].x, corners[3].x));
+    maxX = fmax(fmax(corners[0].x, corners[1].x),
+        fmax(corners[2].x, corners[3].x));
+    minY = fmin(fmin(corners[0].y, corners[1].y),
+        fmin(corners[2].y, corners[3].y));
+    maxY = fmax(fmax(corners[0].y, corners[1].y),
+        fmax(corners[2].y, corners[3].y));
+
+    width = maxX - minX;
+    height = maxY - minY;
+  }
+
+  float minX, maxX, minY, maxY;
+  float width, height;
+};
+
 #endif // __INCLUDE_UTILS_HPP__
