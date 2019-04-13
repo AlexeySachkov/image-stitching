@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include "opts.hpp"
 
 #include "opencv2/video/video.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
@@ -13,12 +14,19 @@ using namespace cv;
 const Size bSize(5, 4);
 const int squareSize = 100;
 
-int main()
+extern command_line_opts opts;
+
+int main(int argc, char *argv[])
 {
+  if (!parse_command_line_opts(argc, argv)) {
+    cout << "Usage: " << argv[0] << " /path/to/img1.jpg /path/to/img2.jpg";
+    return 1;
+  }
+
   vector<Point2f> corners1;
   vector<Point2f> rectangle1;
   Mat result1;
-  Mat image1 = imread("IMG_20190207_124236 - Copy.jpg");
+  Mat image1 = imread(argv[1]);
 
   if (!projectToTheFloor(image1, Size(3, 4), result1, rectangle1, corners1)) {
     cout << "Failed to handle first image!" << endl;
@@ -26,14 +34,13 @@ int main()
   }
 
   displayResult("image1", image1);
-  displayResult("result1", result1);
-  waitKey();
-  imwrite("result1.jpg", result1);
+  displayResult("result1", result1, true);
+  //imwrite("result1.jpg", result1);
 
   vector<Point2f> corners2;
   vector<Point2f> rectangle2;
   Mat result2;
-  Mat image2 = imread("IMG_20190207_124244 - Copy.jpg");
+  Mat image2 = imread(argv[2]);
 
   if (!projectToTheFloor(image2, Size(3, 4), result2, rectangle2, corners2)) {
     cout << "Failed to handle second image!" << endl;
@@ -41,9 +48,8 @@ int main()
   }
 
   displayResult("image2", image2);
-  displayResult("result2", result2);
-  waitKey();
-  imwrite("result2.jpg", result2);
+  displayResult("result2", result2, true);
+  //imwrite("result2.jpg", result2);
 
   vector<Point2f> rotatedRect2;
   if (false) {
@@ -124,9 +130,8 @@ int main()
   result1.copyTo(destRoi1, mask1);
   rotated2.copyTo(destRoi2, mask2);
 
-  displayResult("final", result);
-  waitKey();
-  imwrite("result.jpg", result);
+  displayResult("final", result, true);
+  //imwrite("result.jpg", result);
 
   return 0;
 }

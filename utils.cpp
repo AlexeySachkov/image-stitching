@@ -1,10 +1,13 @@
 #include "utils.hpp"
+#include "opts.hpp"
 
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 
 #include <cmath>
+
+extern command_line_opts opts;
 
 namespace {
 
@@ -172,10 +175,16 @@ std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
 
 }
 
-void displayResult(const std::string &windowName, const cv::Mat &result) {
-  cv::Mat resized;
-  cv::resize(result, resized, calculateSizeForDisplaying(result.size()));
-  cv::imshow(windowName, resized);
+void displayResult(
+    const std::string &windowName, const cv::Mat &result, bool wait) {
+  if (opts.interactive) {
+    cv::Mat resized;
+    cv::resize(result, resized, calculateSizeForDisplaying(result.size()));
+    cv::imshow(windowName, resized);
+    if (wait) {
+      cv::waitKey();
+    }
+  }
 }
 
 
@@ -221,8 +230,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   cv::drawChessboardCorners(temp, chessboardSize,
       cv::Mat(chessboardCorners), true);
 
-  displayResult("temp", temp);
-  cv::waitKey();
+  displayResult("temp", temp, true);
   {
     int r = 1;
     for (const auto &P : chessboardCorners) {
@@ -274,9 +282,8 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
         cv::Scalar(0, 255, 255), 5 + 2 * i);
   }
 
-  displayResult("temp", temp);
-  cv::waitKey();
-  cv::imwrite("temp.jpg", temp);
+  displayResult("temp", temp, true);
+  //cv::imwrite("temp.jpg", temp);
 
   // find preliminary homography matrix
   cv::Mat preH = cv::findHomography(cv::Mat(currentRectrangleCorners),

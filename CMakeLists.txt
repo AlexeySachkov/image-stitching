@@ -12,7 +12,8 @@ message(STATUS "OpenCV_INLCUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
 set(SOURCE_FILES
   main.cpp
-  utils.cpp)
+  utils.cpp
+  opts.cpp)
 
 include_directories(
   ${OpenCV_INCLUDE_DIRS}
@@ -24,3 +25,6 @@ target_link_libraries(stitch ${OpenCV_LIBS})
 
 install(TARGETS stitch
   RUNTIME DESTINATION bin)
+
+enable_testing()
+add_subdirectory(test)

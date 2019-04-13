@@ -7,7 +7,8 @@
 #include <vector>
 #include <string>
 
-void displayResult(const std::string &windowName, const cv::Mat &result);
+void displayResult(
+    const std::string &windowName, const cv::Mat &result, bool wait = false);
 
 std::vector<cv::Point2f> extractCorners(
     const std::vector<std::vector<cv::Point2f>> &points);

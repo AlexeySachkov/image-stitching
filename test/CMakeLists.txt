@@ -1,0 +1,8 @@
+set(TESTS_WD ${CMAKE_CURRENT_BINARY_DIR})
+set(INPUTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Inputs)
+
+add_test(
+  NAME basic_acceptance_1
+  CONFIGURATIONS Release Debug
+  WORKING_DIRECTORY ${TESTS_WD}
+  COMMAND stitch ${INPUTS_DIR}/1.jpg ${INPUTS_DIR}/2.jpg)
