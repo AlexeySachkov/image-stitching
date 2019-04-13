@@ -24,12 +24,11 @@ int main(int argc, char *argv[])
   }
 
   // prepare base image
-  vector<Point2f> corners_base;
   vector<Point2f> rectangle_base;
   Mat base;
   Mat image = imread(opts.file_paths.front());
 
-  if (!projectToTheFloor(image, Size(3, 4), base, rectangle_base, corners_base)) {
+  if (!projectToTheFloor(image, Size(3, 4), base, rectangle_base)) {
     cout << "Failed to handle base image!" << endl;
     return -1;
   }
@@ -38,21 +37,30 @@ int main(int argc, char *argv[])
   displayResult("base", base, true);
   //imwrite("base.jpg", base);
 
+  // Algorithm:
+  // 1. Prepare base image
+  // 2. Stich a next image to the base image
+  // 3. Use stitched image as base, repeat from step 1
+  //
+  // How to stitch:
+  // 1. Project to the floor
+  // 2. Find homography using chessboard corners
+  // 3. Use warpPerspective
+
   for (size_t i = 1; i < opts.file_paths.size(); ++i) {
     // stitch the next image to the base image
-    vector<Point2f> corners;
     vector<Point2f> rectangle;
-    Mat temp;
+    Mat next_projected;
     Mat next_image = imread(opts.file_paths[i]);
 
-    if (!projectToTheFloor(next_image, Size(3, 4), temp, rectangle, corners)) {
+    if (!projectToTheFloor(next_image, Size(3, 4), next_projected, rectangle)) {
       cout << "Failed to handle second image!" << endl;
       return -1;
     }
 
     displayResult("next_image", next_image);
-    displayResult("temp", temp, true);
-    //imwrite("next_image.jpg", temp);
+    displayResult("next_projected", next_projected, true);
+    //imwrite("next_projected.jpg", next_projected);
 
     // TODO: automatically detect rotation
     vector<Point2f> rotatedRect2;
@@ -66,7 +74,7 @@ int main(int argc, char *argv[])
     }
 
     Mat preH = findHomography(Mat(rotatedRect2), Mat(rectangle_base), CV_RANSAC);
-    vector<Point2f> secondCorners = extractCorners(temp);
+    vector<Point2f> secondCorners = extractCorners(next_projected);
     Mat tcorners;
     perspectiveTransform(Mat(secondCorners), tcorners, preH);
     vector<Point2f> newSecondCorners = (vector<Point2f>(tcorners));
@@ -97,20 +105,21 @@ int main(int argc, char *argv[])
     Mat H = findHomography(Mat(rotatedRect2), Mat(shiftedRect1), CV_RANSAC);
 
     Mat rotated2;
-    warpPerspective(temp, rotated2, H, Size(ci.width, ci.height));
+    warpPerspective(next_projected, rotated2, H, Size(ci.width, ci.height));
 
     Mat destRoi1 = merged(roi1);
     Mat destRoi2 = merged(roi2);
 
     Mat mask1(Size(fci.width, fci.height), base.type());
     vector<Point> cm1;
-    for (auto &P : corners_base) {
+    for (auto &P : extractCorners(base)) {
       cm1.push_back(P);
     }
     fillConvexPoly(mask1, cm1, Scalar(255, 255, 255));
 
     Mat mask2(Size(ci.width, ci.height), base.type());
     vector<Point2f> rotatedCorners2;
+    vector<Point2f> corners = extractCorners(next_projected);
     if (false) {
       rotatedCorners2.push_back(corners[3]);
       rotatedCorners2.push_back(corners[0]);
@@ -137,7 +146,7 @@ int main(int argc, char *argv[])
 
     // Update the base image
     base = merged;
-    // TODO: recalculate base corners and rectangle
+    rectangle_base = rectangle;
   }
 
   return 0;

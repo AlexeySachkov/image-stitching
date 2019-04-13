@@ -209,11 +209,10 @@ std::vector<cv::Point2f> extractCorners(const cv::Mat &image) {
 }
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &rectangle,
-    std::vector<cv::Point2f> &corners) {
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners) {
   // search for chessboard corners
-  std::vector<cv::Point2f> chessboardCorners;
-  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCorners,
+  std::vector<cv::Point2f> chessboardCornersOrig;
+  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersOrig,
       CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK |
       CV_CALIB_CB_NORMALIZE_IMAGE))
     return false;
@@ -221,19 +220,19 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   // optimize results
   cv::Mat viewGray;
   cv::cvtColor(image, viewGray, CV_BGR2GRAY);
-  cv::cornerSubPix(viewGray, chessboardCorners, cv::Size(11, 11),
+  cv::cornerSubPix(viewGray, chessboardCornersOrig, cv::Size(11, 11),
       cv::Size(-1, -1),
       cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 
   cv::Mat temp;
   image.copyTo(temp);
   cv::drawChessboardCorners(temp, chessboardSize,
-      cv::Mat(chessboardCorners), true);
+      cv::Mat(chessboardCornersOrig), true);
 
   displayResult("temp", temp, true);
   {
     int r = 1;
-    for (const auto &P : chessboardCorners) {
+    for (const auto &P : chessboardCornersOrig) {
       cv::circle(temp, P, (r * 5), cv::Scalar(200, 250, 250), 3);
       ++r;
     }
@@ -242,7 +241,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   // assume that we could esimate board size in pixel using two leftmost points
   // at the bottom of the chessboard
   auto twoPoints = getTwoBottomLeftPoints(orderChessboardCorners(
-      chessboardCorners, chessboardSize));
+      chessboardCornersOrig, chessboardSize));
 
   cv::Point2f blp = twoPoints.first;
   cv::Point2f blpn = twoPoints.second;
@@ -272,7 +271,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   }
 
   std::vector<cv::Point2f> currentRectrangleCorners =
-      extractCorners(orderChessboardCorners(chessboardCorners, chessboardSize));
+      extractCorners(orderChessboardCorners(chessboardCornersOrig, chessboardSize));
 
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, currentRectrangleCorners[i],
@@ -314,8 +313,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
       cv::Mat(targetRectangleCorners), CV_RANSAC);
 
   cv::warpPerspective(temp, result, H, cv::Size(newWidth, newHeight));
-  corners = newCorners;
-  rectangle = targetRectangleCorners;
+  chessboardCorners = targetRectangleCorners;
 
   return true;
 }

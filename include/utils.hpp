@@ -36,7 +36,6 @@ struct corners_info_t {
 };
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &rectangle,
-    std::vector<cv::Point2f> &corners);
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners);
 
 #endif // __INCLUDE_UTILS_HPP__
