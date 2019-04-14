@@ -11,7 +11,6 @@
 using namespace std;
 using namespace cv;
 
-const Size bSize(5, 4);
 const int squareSize = 100;
 
 extern command_line_opts opts;
@@ -29,7 +28,8 @@ int main(int argc, char *argv[])
   Mat base;
   Mat image = imread(opts.file_paths.front());
 
-  if (!projectToTheFloor(image, Size(3, 4), base, rectangle_base, corners_base)) {
+  if (!projectToTheFloor(image, Size(opts.board_width, opts.board_height),
+      base, rectangle_base, corners_base)) {
     cout << "Failed to handle base image!" << endl;
     return -1;
   }
@@ -55,7 +55,8 @@ int main(int argc, char *argv[])
     Mat next_projected;
     Mat next_image = imread(opts.file_paths[i]);
 
-    if (!projectToTheFloor(next_image, Size(3, 4), next_projected, rectangle, corners)) {
+    if (!projectToTheFloor(next_image, Size(opts.board_width, opts.board_height),
+        next_projected, rectangle, corners)) {
       cout << "Failed to handle second image!" << endl;
       return -1;
     }

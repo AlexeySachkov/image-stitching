@@ -9,6 +9,9 @@ struct command_line_opts {
   unsigned verbosity = 0;
   bool interactive = false;
   std::vector<std::string> file_paths;
+
+  int board_width = 5;
+  int board_height = 3;
 };
 
 bool parse_command_line_opts(int argc, char *argv[]);
