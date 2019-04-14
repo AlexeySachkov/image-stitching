@@ -15,6 +15,8 @@ std::vector<cv::Point2f> extractCorners(
 
 std::vector<cv::Point2f> extractCorners(const cv::Mat &image);
 
+std::vector<cv::Point2f> extractCorners(const cv::Size &size);
+
 struct corners_info_t {
   corners_info_t() = delete;
   corners_info_t(const std::vector<cv::Point2f> &corners) {
@@ -37,5 +39,9 @@ struct corners_info_t {
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners);
+
+void computeHomography(const std::vector<cv::Point2f> &from,
+    std::vector<cv::Point2f> &to, const cv::Size &size_from,
+    cv::Size &size_to, cv::Mat &H);
 
 #endif // __INCLUDE_UTILS_HPP__

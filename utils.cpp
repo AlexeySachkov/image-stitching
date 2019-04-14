@@ -200,10 +200,14 @@ std::vector<cv::Point2f> extractCorners(
 }
 
 std::vector<cv::Point2f> extractCorners(const cv::Mat &image) {
+  return extractCorners(cv::Size(image.cols, image.rows));
+}
+
+std::vector<cv::Point2f> extractCorners(const cv::Size &size) {
   std::vector<cv::Point2f> result;
-  result.push_back(cv::Point2f(0, image.rows)); // bottom left
-  result.push_back(cv::Point2f(image.cols, image.rows)); // bottom right
-  result.push_back(cv::Point2f(image.cols, 0)); // top right
+  result.push_back(cv::Point2f(0, size.height)); // bottom left
+  result.push_back(cv::Point2f(size.width, size.height)); // bottom right
+  result.push_back(cv::Point2f(size.width, 0)); // top right
   result.push_back(cv::Point2f(0, 0)); // top left
   return result;
 }
@@ -270,50 +274,51 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
         cv::Scalar(255, 255, 0), 5 + 2 * i);
   }
 
-  std::vector<cv::Point2f> currentRectrangleCorners =
+  std::vector<cv::Point2f> currentRectangleCorners =
       extractCorners(orderChessboardCorners(chessboardCornersOrig, chessboardSize));
 
   for (int i = 0; i < 4; ++i) {
-    cv::line(temp, currentRectrangleCorners[i],
-        currentRectrangleCorners[(i + 1) % 4],
+    cv::line(temp, currentRectangleCorners[i],
+        currentRectangleCorners[(i + 1) % 4],
         cv::Scalar(0, 0, 255), 5 + 2 * i);
-    cv::circle(temp, currentRectrangleCorners[i], 10 * (i + 1),
+    cv::circle(temp, currentRectangleCorners[i], 10 * (i + 1),
         cv::Scalar(0, 255, 255), 5 + 2 * i);
   }
 
   displayResult("temp", temp, true);
   //cv::imwrite("temp.jpg", temp);
 
+  cv::Mat H;
+  cv::Size newSize;
+  computeHomography(currentRectangleCorners, targetRectangleCorners,
+    cv::Size(temp.cols, temp.rows), newSize, H);
+
+  cv::warpPerspective(temp, result, H, newSize);
+  chessboardCorners = targetRectangleCorners;
+
+  return true;
+}
+
+void computeHomography(const std::vector<cv::Point2f> &from,
+    std::vector<cv::Point2f> &to, const cv::Size &size_from,
+    cv::Size &size_to, cv::Mat &H) {
   // find preliminary homography matrix
-  cv::Mat preH = cv::findHomography(cv::Mat(currentRectrangleCorners),
-      cv::Mat(targetRectangleCorners), CV_RANSAC);
+  cv::Mat preH = cv::findHomography(cv::Mat(from), cv::Mat(to), CV_RANSAC);
 
-  std::vector<cv::Point2f> currentCorners = extractCorners(image);
-
-  cv::Mat tcorners;
-  cv::perspectiveTransform(cv::Mat(currentCorners), tcorners, preH);
-  std::vector<cv::Point2f> newCorners = (std::vector<cv::Point2f>)tcorners;
-
-  corners_info_t ci(newCorners);
-  float newWidth = ci.width;
-  float newHeight = ci.height;
+  std::vector<cv::Point2f> currentImageCorners = extractCorners(size_from);
+  cv::Mat temp;
+  cv::perspectiveTransform(cv::Mat(currentImageCorners), temp, preH);
+  std::vector<cv::Point2f> newImageCorners = (std::vector<cv::Point2f>)temp;
 
   // apply offsets
-  for (auto &P : targetRectangleCorners) {
-    P.x += fabs(ci.minX);
-    P.y += fabs(ci.minY);
-  }
-  for (auto &P : newCorners) {
+  corners_info_t ci(newImageCorners);
+  for (auto &P : to) {
     P.x += fabs(ci.minX);
     P.y += fabs(ci.minY);
   }
 
   // recalculate homography accounting offsets
-  cv::Mat H = cv::findHomography(cv::Mat(currentRectrangleCorners),
-      cv::Mat(targetRectangleCorners), CV_RANSAC);
+  H = cv::findHomography(cv::Mat(from), cv::Mat(to), CV_RANSAC);
 
-  cv::warpPerspective(temp, result, H, cv::Size(newWidth, newHeight));
-  chessboardCorners = targetRectangleCorners;
-
-  return true;
+  size_to = cv::Size(ci.width, ci.height);
 }
