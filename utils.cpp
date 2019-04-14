@@ -213,7 +213,8 @@ std::vector<cv::Point2f> extractCorners(const cv::Size &size) {
 }
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners) {
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners,
+    std::vector<cv::Point2f> &imageCorners) {
   // search for chessboard corners
   std::vector<cv::Point2f> chessboardCornersOrig;
   if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersOrig,
@@ -289,19 +290,24 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   //cv::imwrite("temp.jpg", temp);
 
   cv::Mat H;
-  cv::Size newSize;
+  cv::Size shift;
   computeHomography(currentRectangleCorners, targetRectangleCorners,
-    cv::Size(temp.cols, temp.rows), newSize, H);
+    cv::Size(temp.cols, temp.rows), H, shift, imageCorners);
 
-  cv::warpPerspective(temp, result, H, newSize);
+  corners_info_t ic(imageCorners);
+  cv::warpPerspective(temp, result, H, cv::Size(ic.width, ic.height));
   chessboardCorners = targetRectangleCorners;
+  for (auto &P : chessboardCorners) {
+    P.x += shift.width;
+    P.y += shift.height;
+  }
 
   return true;
 }
 
 void computeHomography(const std::vector<cv::Point2f> &from,
-    std::vector<cv::Point2f> &to, const cv::Size &size_from,
-    cv::Size &size_to, cv::Mat &H) {
+    const std::vector<cv::Point2f> &to, const cv::Size &size_from,
+    cv::Mat &H, cv::Size &shift, std::vector<cv::Point2f> &imageCorners) {
   // find preliminary homography matrix
   cv::Mat preH = cv::findHomography(cv::Mat(from), cv::Mat(to), CV_RANSAC);
 
@@ -312,13 +318,20 @@ void computeHomography(const std::vector<cv::Point2f> &from,
 
   // apply offsets
   corners_info_t ci(newImageCorners);
-  for (auto &P : to) {
-    P.x += fabs(ci.minX);
-    P.y += fabs(ci.minY);
+  shift = cv::Size(ci.minX < 0 ? fabs(ci.minX) : 0, ci.minY < 0 ? fabs(ci.minY) : 0);
+  auto to_ = to;
+  for (auto &P : to_) {
+    P.x += shift.width;
+    P.y += shift.height;
   }
 
-  // recalculate homography accounting offsets
-  H = cv::findHomography(cv::Mat(from), cv::Mat(to), CV_RANSAC);
+  for (auto &P : newImageCorners) {
+    P.x += shift.width;
+    P.y += shift.height;
+  }
 
-  size_to = cv::Size(ci.width, ci.height);
+  imageCorners = newImageCorners;
+
+  // recalculate homography accounting offsets
+  H = cv::findHomography(cv::Mat(from), cv::Mat(to_), CV_RANSAC);
 }

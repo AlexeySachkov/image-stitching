@@ -29,8 +29,8 @@ struct corners_info_t {
     maxY = fmax(fmax(corners[0].y, corners[1].y),
         fmax(corners[2].y, corners[3].y));
 
-    width = maxX - minX;
-    height = maxY - minY;
+    width = maxX - (minX < 0 ? minX : 0);
+    height = maxY - (minY < 0 ? minY : 0);
   }
 
   float minX, maxX, minY, maxY;
@@ -38,10 +38,11 @@ struct corners_info_t {
 };
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners);
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners,
+    std::vector<cv::Point2f> &imageCorners);
 
 void computeHomography(const std::vector<cv::Point2f> &from,
-    std::vector<cv::Point2f> &to, const cv::Size &size_from,
-    cv::Size &size_to, cv::Mat &H);
+    const std::vector<cv::Point2f> &to, const cv::Size &size_from,
+    cv::Mat &H, cv::Size &shift, std::vector<cv::Point2f> &imageCorners);
 
 #endif // __INCLUDE_UTILS_HPP__
