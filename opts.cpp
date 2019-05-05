@@ -38,6 +38,14 @@ bool parse_command_line_opts(int argc, char *argv[]) {
 
       opts.board_width = atoi(board_width.c_str());
       opts.board_height = atoi(board_height.c_str());
+    } else if (arg.find("--output") == 0 || arg.find("-o") == 0) {
+      std::string::size_type pos = arg.find("=");
+      if (std::string::npos == pos) {
+        valid = false;
+        break;
+      }
+
+      opts.output_file = arg.substr(pos + 1);
     } else {
       // assume argument is a path to an image
       opts.file_paths.push_back(arg);

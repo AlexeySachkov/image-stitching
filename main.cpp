@@ -1,9 +1,10 @@
 #include "utils.hpp"
 #include "opts.hpp"
 
-#include "opencv2/video/video.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
+#include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
+#include "opencv2/video/video.hpp"
 
 #include <iostream>
 #include <vector>
@@ -21,6 +22,89 @@ int main(int argc, char *argv[])
     cout << "Usage: " << argv[0] << " /path/to/img1.jpg /path/to/img2.jpg";
     return 1;
   }
+
+  vector<Mat> projected(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_orig(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_target(opts.file_paths.size());
+  vector<vector<Point2f>> image_corners_target(opts.file_paths.size());
+  vector<Mat> H(opts.file_paths.size());
+
+  for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+    Mat image = imread(opts.file_paths[i]);
+
+    if (!projectToTheFloor(image, Size(opts.board_width, opts.board_height),
+        projected[i], chessboard_corners_orig[i], chessboard_corners_target[i],
+        image_corners_target[i])) {
+      cout << "Failed to handle image #" << i + 1 << "!" << endl;
+      return -1;
+    }
+  }
+
+  vector<Point2f> chessboard_corners = chessboard_corners_target.front();
+  Size result_size(projected.front().cols, projected.front().rows);
+
+  for (size_t i = 1; i < opts.file_paths.size(); ++i) {
+    Mat preH = findHomography(chessboard_corners_target[i], chessboard_corners, CV_RANSAC);
+
+    Mat temp;
+    perspectiveTransform(Mat(image_corners_target[i]), temp, preH);
+    vector<Point2f> image_corners = (vector<Point2f>)temp;
+
+    float minX = image_corners.front().x;
+    float minY = image_corners.front().y;
+    float maxX = image_corners.front().x;
+    float maxY = image_corners.front().y;
+
+    for (size_t j = 1; j < image_corners.size(); ++j) {
+      if (image_corners[j].x < minX) {
+        minX = image_corners[j].x;
+      } else if (image_corners[j].x > maxX) {
+        maxX = image_corners[j].x;
+      }
+      if (image_corners[j].y < minY) {
+        minY = image_corners[j].y;
+      } else if (image_corners[j].y > maxY) {
+        maxY = image_corners[j].y;
+      }
+    }
+
+    float dx = 0, dy = 0;
+    float sx = 0, sy = 0;
+    if (minX < 0) {
+      dx = fabs(minX);
+    } else {
+      sx = minX;
+    }
+    if (minY < 0) {
+      dy = fabs(minY);
+    } else {
+      sy = minY;
+    }
+
+    for (int j = 0; j < chessboard_corners.size(); ++j) {
+      chessboard_corners[j].x += dx;
+      chessboard_corners[j].y += dy;
+    }
+
+    for (int j = 0; j <= i; ++j) {
+      H[j] = findHomography(chessboard_corners_orig[j], chessboard_corners, CV_RANSAC);
+    }
+
+    result_size = Size(max((float)result_size.width, maxX - sx),
+      max((float)result_size.height, maxY - sy));
+  }
+
+  FileStorage fs(opts.output_file, FileStorage::WRITE);
+
+  fs << "result_size" << result_size;
+  fs << "H" << "[";
+  for (int i = 0; i < opts.file_paths.size(); ++i) {
+    fs << H[i];
+  }
+  fs << "]";
+
+  fs.release();
+/*
 
   // prepare base image
   vector<Point2f> rectangle_base;
@@ -47,6 +131,9 @@ int main(int argc, char *argv[])
   // 1. Project to the floor
   // 2. Find homography using chessboard corners
   // 3. Use warpPerspective
+
+  Size final_size(base.cols, base.rows);
+
 
   for (size_t i = 1; i < opts.file_paths.size(); ++i) {
     // stitch the next image to the base image
@@ -116,19 +203,20 @@ int main(int argc, char *argv[])
       cm2.push_back(P);
     }
     fillConvexPoly(mask2, cm2, Scalar(255, 255, 255));
-    displayResult("mask2", mask2);
     displayResult("rotated2", rotated2, true);
 
     base.copyTo(destRoi1);
     rotated2.copyTo(destRoi2, mask2);
 
     displayResult("final", merged, true);
-    //imwrite("merged.jpg", merged);
+    imwrite("merged.jpg", merged);
 
     // Update the base image
     base = merged;
     rectangle_base = rectangle;
+    final_size = Size(base.cols, base.rows);
   }
 
+*/
   return 0;
 }

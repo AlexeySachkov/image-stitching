@@ -38,7 +38,8 @@ struct corners_info_t {
 };
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners,
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
+    std::vector<cv::Point2f> &chessboardCorners,
     std::vector<cv::Point2f> &imageCorners);
 
 void computeHomography(const std::vector<cv::Point2f> &from,

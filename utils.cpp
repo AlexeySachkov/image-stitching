@@ -17,12 +17,12 @@ const cv::Point2f &getPoint(const std::vector<cv::Point2f> &points,
 }
 
 const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
-    const cv::Size &screenSize = cv::Size(1920, 1080)) {
+    const cv::Size &screenSize = cv::Size(1080, 1920)) {
   // To make looking at several images eaiser, each of
   // them should not occupy more than half of the screen.
   // For height this restriction is relaxed
   float targetH = (float)screenSize.height * 0.7;
-  float targetW = (float)screenSize.width * 0.5;
+  float targetW = (float)screenSize.width * 0.7;
 
   float hRatio = originalSize.height / targetH;
   float wRatio = originalSize.width / targetW;
@@ -213,10 +213,10 @@ std::vector<cv::Point2f> extractCorners(const cv::Size &size) {
 }
 
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &chessboardCorners,
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
+    std::vector<cv::Point2f> &chessboardCorners,
     std::vector<cv::Point2f> &imageCorners) {
   // search for chessboard corners
-  std::vector<cv::Point2f> chessboardCornersOrig;
   if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersOrig,
       CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK |
       CV_CALIB_CB_NORMALIZE_IMAGE))
@@ -231,10 +231,13 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 
   cv::Mat temp;
   image.copyTo(temp);
+#if 0
   cv::drawChessboardCorners(temp, chessboardSize,
       cv::Mat(chessboardCornersOrig), true);
+#endif
 
   displayResult("temp", temp, true);
+#if 0
   {
     int r = 1;
     for (const auto &P : chessboardCornersOrig) {
@@ -242,6 +245,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
       ++r;
     }
   }
+#endif
 
   // assume that we could esimate board size in pixel using two leftmost points
   // at the bottom of the chessboard
@@ -251,8 +255,10 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   cv::Point2f blp = twoPoints.first;
   cv::Point2f blpn = twoPoints.second;
   float squareSize = norm(blp - blpn);
+#if 0
   cv::circle(temp, blp, 30, cv::Scalar(0, 255, 0), 10);
   cv::circle(temp, blpn, 50, cv::Scalar(0, 255, 0), 10);
+#endif
 
   std::vector<cv::Point2f> targetRectangleCorners;
   // bottom left
@@ -271,8 +277,10 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, targetRectangleCorners[i],
         targetRectangleCorners[(i + 1) % 4], cv::Scalar(255, 0, 0), 5 + 2 * i);
+#if 0
     cv::circle(temp, targetRectangleCorners[i], 5 * (i + 1),
         cv::Scalar(255, 255, 0), 5 + 2 * i);
+#endif
   }
 
   std::vector<cv::Point2f> currentRectangleCorners =
@@ -282,8 +290,10 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::line(temp, currentRectangleCorners[i],
         currentRectangleCorners[(i + 1) % 4],
         cv::Scalar(0, 0, 255), 5 + 2 * i);
+#if 0
     cv::circle(temp, currentRectangleCorners[i], 10 * (i + 1),
         cv::Scalar(0, 255, 255), 5 + 2 * i);
+#endif
   }
 
   displayResult("temp", temp, true);

@@ -12,6 +12,8 @@ struct command_line_opts {
 
   int board_width = 5;
   int board_height = 3;
+
+  std::string output_file = "conf.xml";
 };
 
 bool parse_command_line_opts(int argc, char *argv[]);
