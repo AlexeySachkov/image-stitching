@@ -10,21 +10,14 @@ message(STATUS "Found OpenCV ${OpenCV_VERSION}")
 message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 message(STATUS "OpenCV_INLCUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
-set(SOURCE_FILES
-  main.cpp
-  utils.cpp
-  opts.cpp)
-
+# Global include directories
 include_directories(
   ${OpenCV_INCLUDE_DIRS}
   include/)
 
-add_executable(stitch ${SOURCE_FILES})
-
-target_link_libraries(stitch ${OpenCV_LIBS})
-
-install(TARGETS stitch
-  RUNTIME DESTINATION bin)
+add_subdirectory(lib)
+add_subdirectory(tools)
 
 enable_testing()
 add_subdirectory(test)
+

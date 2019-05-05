@@ -216,8 +216,9 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
     std::vector<cv::Point2f> &chessboardCorners,
     std::vector<cv::Point2f> &imageCorners) {
+  std::vector<cv::Point2f> chessboardCornersTemp;
   // search for chessboard corners
-  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersOrig,
+  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersTemp,
       CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK |
       CV_CALIB_CB_NORMALIZE_IMAGE))
     return false;
@@ -225,7 +226,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   // optimize results
   cv::Mat viewGray;
   cv::cvtColor(image, viewGray, CV_BGR2GRAY);
-  cv::cornerSubPix(viewGray, chessboardCornersOrig, cv::Size(11, 11),
+  cv::cornerSubPix(viewGray, chessboardCornersTemp, cv::Size(11, 11),
       cv::Size(-1, -1),
       cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 
@@ -250,7 +251,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   // assume that we could esimate board size in pixel using two leftmost points
   // at the bottom of the chessboard
   auto twoPoints = getTwoBottomLeftPoints(orderChessboardCorners(
-      chessboardCornersOrig, chessboardSize));
+      chessboardCornersTemp, chessboardSize));
 
   cv::Point2f blp = twoPoints.first;
   cv::Point2f blpn = twoPoints.second;
@@ -284,7 +285,8 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   }
 
   std::vector<cv::Point2f> currentRectangleCorners =
-      extractCorners(orderChessboardCorners(chessboardCornersOrig, chessboardSize));
+      extractCorners(orderChessboardCorners(chessboardCornersTemp, chessboardSize));
+  chessboardCornersOrig = currentRectangleCorners;
 
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, currentRectangleCorners[i],

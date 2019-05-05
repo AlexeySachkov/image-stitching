@@ -1,0 +1,3 @@
+
+add_subdirectory(calibrate)
+add_subdirectory(stitch)
