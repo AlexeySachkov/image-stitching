@@ -17,7 +17,7 @@ const cv::Point2f &getPoint(const std::vector<cv::Point2f> &points,
 }
 
 const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
-    const cv::Size &screenSize = cv::Size(1080, 1920)) {
+    const cv::Size &screenSize = cv::Size(1920, 1080)) {
   // To make looking at several images eaiser, each of
   // them should not occupy more than half of the screen.
   // For height this restriction is relaxed
@@ -28,8 +28,8 @@ const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
   float wRatio = originalSize.width / targetW;
 
   float ratio = fmax(hRatio, wRatio);
-  return cv::Size((int)round(originalSize.height / ratio),
-      (int)round(originalSize.width / ratio));
+  return cv::Size((int)round(originalSize.width / ratio),
+      (int)round(originalSize.height / ratio));
 }
 
 void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
@@ -212,13 +212,11 @@ std::vector<cv::Point2f> extractCorners(const cv::Size &size) {
   return result;
 }
 
-bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
-    cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
-    std::vector<cv::Point2f> &chessboardCorners,
-    std::vector<cv::Point2f> &imageCorners) {
-  std::vector<cv::Point2f> chessboardCornersTemp;
+bool findChessboardCorners(const cv::Mat &image,
+    const cv::Size &chessboardSize,
+    std::vector<cv::Point2f> &chessboardCorners) {
   // search for chessboard corners
-  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCornersTemp,
+  if (!cv::findChessboardCorners(image, chessboardSize, chessboardCorners,
       CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK |
       CV_CALIB_CB_NORMALIZE_IMAGE))
     return false;
@@ -226,9 +224,40 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   // optimize results
   cv::Mat viewGray;
   cv::cvtColor(image, viewGray, CV_BGR2GRAY);
-  cv::cornerSubPix(viewGray, chessboardCornersTemp, cv::Size(11, 11),
+  cv::cornerSubPix(viewGray, chessboardCorners, cv::Size(11, 11),
       cv::Size(-1, -1),
       cv::TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+  return true;
+}
+
+float angleToHorizon(const std::vector<cv::Point2f> &chessboardCorners,
+    const cv::Size &chessboardSize) {
+  auto twoPoints = getTwoBottomLeftPoints(orderChessboardCorners(
+    chessboardCorners, chessboardSize));
+  auto A = twoPoints.first;
+  auto B = twoPoints.second;
+  cv::Point2f C(B.x, A.y);
+
+  float BC = fabs(B.y - A.y);
+  float AB = sqrt((A.x - B.x)*(A.x - B.x) + (A.y - B.y)*(A.y - B.y));
+
+  float S = BC / AB;
+  float R = asin(S);
+
+  const float PI = 3.1415;
+  R = R*180/PI;
+
+  return R;
+}
+
+bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
+    cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
+    std::vector<cv::Point2f> &chessboardCorners,
+    std::vector<cv::Point2f> &imageCorners) {
+  std::vector<cv::Point2f> chessboardCornersTemp;
+  if (!findChessboardCorners(image, chessboardSize, chessboardCornersTemp)) {
+    return false;
+  }
 
   cv::Mat temp;
   image.copyTo(temp);

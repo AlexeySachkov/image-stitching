@@ -35,6 +35,43 @@ int main(int argc, char *argv[])
   vector<vector<Point2f>> image_corners_target(opts.file_paths.size());
   vector<Mat> H(opts.file_paths.size());
 
+  vector<Mat> images(opts.file_paths.size());
+  if (!opts.video) {
+    for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      Mat image = imread(opts.file_paths[i]);
+    }
+  } else {
+    for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      VideoCapture video(opts.file_paths[i]);
+      if (!video.isOpened()) {
+        cout << "Failed to open file " << opts.file_paths[i] << endl;
+        return 3;
+      }
+      // TODO: undistort step
+      Mat frame;
+      bool found_good_frame = false;
+      while (!found_good_frame) {
+        video >> frame;
+        Scalar color = Scalar(0, 0, 255); // red
+        if (findChessboardCorners(frame, Size(opts.board_width, opts.board_height),
+            chessboard_corners_orig[i])) {
+          float angle = angleToHorizon(chessboard_corners_orig[i], Size(opts.board_width, opts.board_height));
+          if (angle < 1) {
+            color = Scalar(0, 255, 0); // green
+          } else if (angle < 10) {
+            color = Scalar(0, 255, 255); // yellow
+          }
+          putText(frame, "Angle: " + std::to_string(angle), Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+        }
+        rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
+        displayResult("Frame from camera " + std::to_string(i), frame);
+        cv::waitKey(30);
+      }
+    }
+
+    return 0;
+  }
+
   for (size_t i = 0; i < opts.file_paths.size(); ++i) {
     Mat image = imread(opts.file_paths[i]);
 

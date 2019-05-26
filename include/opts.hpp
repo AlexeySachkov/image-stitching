@@ -9,6 +9,7 @@ struct command_line_opts {
   unsigned verbosity = 0;
   bool interactive = false;
   std::vector<std::string> file_paths;
+  bool video = false;
 
   int board_width = 5;
   int board_height = 3;

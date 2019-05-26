@@ -46,6 +46,8 @@ bool parse_command_line_opts(int argc, char *argv[]) {
       }
 
       opts.output_file = arg.substr(pos + 1);
+    } else if ("--video" == arg) {
+      opts.video = true;
     } else {
       // assume argument is a path to an image
       opts.file_paths.push_back(arg);

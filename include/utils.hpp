@@ -37,6 +37,13 @@ struct corners_info_t {
   float width, height;
 };
 
+float angleToHorizon(const std::vector<cv::Point2f> &chessboardCorners,
+    const cv::Size &chessboardSize);
+
+bool findChessboardCorners(const cv::Mat &image,
+    const cv::Size &chessboardSize,
+    std::vector<cv::Point2f> &chessboardCorners);
+
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
     std::vector<cv::Point2f> &chessboardCorners,
