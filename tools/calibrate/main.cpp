@@ -16,6 +16,15 @@ using namespace cv;
 
 extern command_line_opts opts;
 
+enum class UState {
+  DELAY,
+  NOT_STARTED,
+  GATHERING_DATA,
+  CALIBRATING,
+  CALIBRATED,
+  ACCEPTED
+};
+
 int main(int argc, char *argv[])
 {
   if (!parse_command_line_opts(argc, argv)) {
@@ -44,6 +53,7 @@ int main(int argc, char *argv[])
       Mat image = imread(opts.file_paths[i]);
     }
   } else {
+    // Step #1. Remove distortion
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {
       VideoCapture video(opts.file_paths[i]);
       if (!video.isOpened()) {
@@ -51,84 +61,123 @@ int main(int argc, char *argv[])
         return 3;
       }
 
-      Mat frame;
+      UState state = UState::NOT_STARTED;
       Size chessboardSize(opts.board_width, opts.board_height);
       vector<Point3f> obj;
       for(int j = 0; j < opts.board_width * opts.board_height; j++)
           // TODO: squareSize
           obj.push_back(Point3f((j / opts.board_width) * 100,
               (j % opts.board_width) * 100, 0.0f));
-
-      bool undistorted = false;
-      bool started = false;
+      vector<vector<Point3f>> object_points(opts.number_of_frames, obj);
+      vector<vector<Point2f>> image_points;
+      Scalar color(0, 0, 0);
+      string text;
+      int delay = 0;
+      UState next_state = UState::NOT_STARTED;
       auto last_time = chrono::steady_clock::now();
-      while (!undistorted) {
-        vector<vector<Point2f>> image_points;
-        vector<vector<Point3f>> object_points;
+      Mat frame;
 
-        while (image_points.size() < opts.number_of_frames) {
-          video >> frame;
+      // Main loop for undistortion
+      while (true) {
+        video >> frame;
 
-          if (started) {
+        switch (state) {
+          case UState::DELAY: {
+            --delay;
+            if (delay <= 0) {
+              state = next_state;
+            }
+
+            break;
+          }
+          case UState::NOT_STARTED: {
+            image_points.clear();
+            color = Scalar(0, 0, 0);
+            text = "Press 's' to start gathering data";
+            break;
+          }
+          case UState::GATHERING_DATA: {
+            if (image_points.size() == opts.number_of_frames) {
+              state = UState::CALIBRATING;
+              break;
+            }
+
             auto time = chrono::steady_clock::now();
-            Scalar color = Scalar(0, 0, 255); // red
+            color = Scalar(0, 0, 255); // red
             if (findChessboardCorners(frame, chessboardSize,
                 chessboard_corners_orig[i])) {
               color = Scalar(0, 255, 255); // yellow
-              if (chrono::duration<double, std::milli>(time - last_time).count()
-                  >= opts.delay) {
+              chrono::duration<double, milli> elapsed = time - last_time;
+              if (elapsed.count() >= opts.delay) {
                 image_points.push_back(chessboard_corners_orig[i]);
-                object_points.push_back(obj);
                 color = Scalar(0, 255, 0); // green
                 last_time = time;
               }
             }
-            rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows),
-                color, 8);
-            putText(frame, "Undistort: " + std::to_string(image_points.size())
-                + "/" + std::to_string(opts.number_of_frames), Point2f(10, 30),
-                FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
-          } else {
-            putText(frame, "Undistort: press s to start", Point2f(10, 30),
-                FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
-          }
 
-          displayResult("Frame from camera " + std::to_string(i), frame);
-          auto key = waitKey(30);
-          if (!started && key == 's') {
-            started = true;
+            text = "Gathering data: " + to_string(image_points.size()) + "/" +
+                to_string(opts.number_of_frames);
+            break;
+          }
+          case UState::CALIBRATING: {
+            cameraMatrix[i] = Mat::eye(3, 3, CV_64F);
+            distCoeffs[i] = Mat::zeros(8, 1, CV_64F);
+            vector<Mat> rvecs;
+            vector<Mat> tvecs;
+            calibrateCamera(object_points, image_points, frame.size(),
+                cameraMatrix[i], distCoeffs[i], rvecs, tvecs,
+                CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5);
+            if (checkRange(cameraMatrix[i]) && checkRange(distCoeffs[i])) {
+              color = Scalar(0, 255, 0); // green
+              text = "Calibrated sucessfully";
+              delay = 30;
+              next_state = UState::CALIBRATED;
+            } else {
+              color = Scalar(0, 0, 255); // red
+              text = "Failed to calibrate. Re-starting";
+              delay = 30;
+              next_state = UState::NOT_STARTED;
+            }
+
+            state = UState::DELAY;
+            break;
+          }
+          case UState::CALIBRATED: {
+            Mat undistorted;
+            undistort(frame, undistorted, cameraMatrix[i], distCoeffs[i]);
+            frame = undistorted;
+            color = Scalar(0, 0, 0);
+            text = "Undistorted. Press 'y' to continue, 'n' to restart";
+            break;
+          }
+          case UState::ACCEPTED: {
+            // swith to a next camera
+            continue;
           }
         }
 
-        cameraMatrix[i] = Mat::eye(3, 3, CV_64F);
-        distCoeffs[i] = Mat::zeros(8, 1, CV_64F);
-        vector<Mat> rvecs;
-        vector<Mat> tvecs;
-        calibrateCamera(object_points, image_points, frame.size(),
-            cameraMatrix[i], distCoeffs[i], rvecs, tvecs,
-            CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5);
-        bool calibrated_good = checkRange(cameraMatrix[i]) &&
-            checkRange(distCoeffs[i]);
-        // green or red
-        Scalar color = calibrated_good ? Scalar(0, 255, 0) : Scalar(0, 0, 255);
-
-        while (true) {
-          video >> frame;
-          Mat undistorted;
+        if (Scalar(0, 0, 0) != color) {
           rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows),
               color, 8);
-          undistort(frame, undistorted, cameraMatrix[i], distCoeffs[i]);
-          putText(undistorted,
-              "Undistorted. Presss 'y' to confirm, 'n' to restart",
-              Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
-          displayResult("Frame from camera " + std::to_string(i), undistorted);
-          auto key = waitKey(30);
-          if (key == 'y') {
-            undistorted = true;
-            break;
-          } else if (key == 'n') {
-            break;
-          }
+        }
+        putText(frame, text, Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0,
+            Scalar(255, 0 , 0));
+        displayResult("Frame from camera " + to_string(i), frame);
+        char key = waitKey(30);
+        if (key == 'y') {
+          state = UState::DELAY;
+          next_state = UState::ACCEPTED;
+          delay = 30;
+          color = Scalar(0, 0, 0);
+          text = "Switching to a next camera";
+        } else if (key == 'n') {
+          state = UState::DELAY;
+          next_state = UState::NOT_STARTED;
+          text = "Re-starting";
+          color = Scalar(0, 0, 0);
+          delay = 30;
+        } else if (state == UState::NOT_STARTED && key == 's') {
+          state = UState::GATHERING_DATA;
         }
       }
 
@@ -151,6 +200,8 @@ int main(int argc, char *argv[])
         cv::waitKey(30);
       }
     }
+
+    // TODO: step two. Alignment + stitching
 
     return 0;
   }
