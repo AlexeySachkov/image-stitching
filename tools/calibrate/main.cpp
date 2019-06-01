@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 using namespace cv;
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
   vector<vector<Point2f>> chessboard_corners_target(opts.file_paths.size());
   vector<vector<Point2f>> image_corners_target(opts.file_paths.size());
   vector<Mat> H(opts.file_paths.size());
+  vector<Mat> U(opts.file_paths.size());
 
   vector<Mat> images(opts.file_paths.size());
   if (!opts.video) {
@@ -47,8 +49,85 @@ int main(int argc, char *argv[])
         cout << "Failed to open file " << opts.file_paths[i] << endl;
         return 3;
       }
-      // TODO: undistort step
+
       Mat frame;
+      Size chessboardSize(opts.board_width, opts.board_height);
+      vector<Point3f> obj;
+      for(int j = 0; j < opts.board_width * opts.board_height; j++)
+          // TODO: squareSize
+          obj.push_back(Point3f((j / opts.board_width) * 100,
+              (j % opts.board_width) * 100, 0.0f));
+
+      bool undistorted = false;
+      bool started = false;
+      auto last_time = chrono::steady_clock::now();
+      unsigned f = 0;
+      while (!undistorted) {
+        vector<vector<Point2f>> image_points;
+        vector<vector<Point3f>> object_points;
+
+        while (image_points.size() < opts.number_of_frames) {
+          video >> frame;
+          ++f;
+
+          if (started) {
+            auto time = chrono::steady_clock::now();
+            Scalar color = Scalar(0, 0, 255); // red
+            if (findChessboardCorners(frame, chessboardSize,
+                chessboard_corners_orig[i])) {
+              color = Scalar(0, 255, 255); // yellow
+              if (chrono::duration<double, std::milli>(time - last_time).count() >= opts.delay) {
+                image_points.push_back(chessboard_corners_orig[i]);
+                object_points.push_back(obj);
+                color = Scalar(0, 255, 0); // green
+                last_time = time;
+              }
+            }
+            rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
+            putText(frame, "Undistort: " + std::to_string(image_points.size())
+                + "/" + std::to_string(opts.number_of_frames), Point2f(10, 30),
+                FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+          } else {
+            putText(frame, "Undistort: press s to start", Point2f(10, 30),
+                FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+          }
+          displayResult("Frame from camera " + std::to_string(i), frame);
+          auto key = waitKey(30);
+          if (!started && key == 's') {
+            started = true;
+          }
+        }
+
+        Mat cameraMatrix = Mat::eye(3, 3, CV_64F);
+        Mat distCoeffs = Mat::zeros(8, 1, CV_64F);
+        vector<Mat> rvecs;
+        vector<Mat> tvecs;
+        calibrateCamera(object_points, image_points, frame.size(),
+            cameraMatrix, distCoeffs, rvecs, tvecs,
+            CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5);
+        bool calibrated_good = checkRange(cameraMatrix) && checkRange(distCoeffs);
+        // green or red
+        Scalar color = calibrated_good ? Scalar(0, 255, 0) : Scalar(0, 0, 255);
+
+        while (true) {
+          video >> frame;
+          Mat undistorted;
+          rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
+          undistort(frame, undistorted, cameraMatrix, distCoeffs);
+          putText(undistorted,
+              "Undistorted. Presss 'y' to confirm, 'n' to restart",
+              Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+          displayResult("Frame from camera " + std::to_string(i), undistorted);
+          auto key = waitKey(30);
+          if (key == 'y') {
+            undistorted = true;
+            break;
+          } else if (key == 'n') {
+            break;
+          }
+        }
+      }
+
       bool found_good_frame = false;
       while (!found_good_frame) {
         video >> frame;

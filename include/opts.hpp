@@ -11,6 +11,9 @@ struct command_line_opts {
   std::vector<std::string> file_paths;
   bool video = false;
 
+  int delay = 300;
+  int number_of_frames = 30;
+
   int board_width = 5;
   int board_height = 3;
 
