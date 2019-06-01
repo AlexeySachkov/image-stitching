@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
   vector<vector<Point2f>> chessboard_corners_target(opts.file_paths.size());
   vector<vector<Point2f>> image_corners_target(opts.file_paths.size());
   vector<Mat> H(opts.file_paths.size());
-  vector<Mat> U(opts.file_paths.size());
+  vector<Mat> cameraMatrix(opts.file_paths.size());
+  vector<Mat> distCoeffs(opts.file_paths.size());
 
   vector<Mat> images(opts.file_paths.size());
   if (!opts.video) {
@@ -61,14 +62,12 @@ int main(int argc, char *argv[])
       bool undistorted = false;
       bool started = false;
       auto last_time = chrono::steady_clock::now();
-      unsigned f = 0;
       while (!undistorted) {
         vector<vector<Point2f>> image_points;
         vector<vector<Point3f>> object_points;
 
         while (image_points.size() < opts.number_of_frames) {
           video >> frame;
-          ++f;
 
           if (started) {
             auto time = chrono::steady_clock::now();
@@ -76,14 +75,16 @@ int main(int argc, char *argv[])
             if (findChessboardCorners(frame, chessboardSize,
                 chessboard_corners_orig[i])) {
               color = Scalar(0, 255, 255); // yellow
-              if (chrono::duration<double, std::milli>(time - last_time).count() >= opts.delay) {
+              if (chrono::duration<double, std::milli>(time - last_time).count()
+                  >= opts.delay) {
                 image_points.push_back(chessboard_corners_orig[i]);
                 object_points.push_back(obj);
                 color = Scalar(0, 255, 0); // green
                 last_time = time;
               }
             }
-            rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
+            rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows),
+                color, 8);
             putText(frame, "Undistort: " + std::to_string(image_points.size())
                 + "/" + std::to_string(opts.number_of_frames), Point2f(10, 30),
                 FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
@@ -91,6 +92,7 @@ int main(int argc, char *argv[])
             putText(frame, "Undistort: press s to start", Point2f(10, 30),
                 FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
           }
+
           displayResult("Frame from camera " + std::to_string(i), frame);
           auto key = waitKey(30);
           if (!started && key == 's') {
@@ -98,22 +100,24 @@ int main(int argc, char *argv[])
           }
         }
 
-        Mat cameraMatrix = Mat::eye(3, 3, CV_64F);
-        Mat distCoeffs = Mat::zeros(8, 1, CV_64F);
+        cameraMatrix[i] = Mat::eye(3, 3, CV_64F);
+        distCoeffs[i] = Mat::zeros(8, 1, CV_64F);
         vector<Mat> rvecs;
         vector<Mat> tvecs;
         calibrateCamera(object_points, image_points, frame.size(),
-            cameraMatrix, distCoeffs, rvecs, tvecs,
+            cameraMatrix[i], distCoeffs[i], rvecs, tvecs,
             CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5);
-        bool calibrated_good = checkRange(cameraMatrix) && checkRange(distCoeffs);
+        bool calibrated_good = checkRange(cameraMatrix[i]) &&
+            checkRange(distCoeffs[i]);
         // green or red
         Scalar color = calibrated_good ? Scalar(0, 255, 0) : Scalar(0, 0, 255);
 
         while (true) {
           video >> frame;
           Mat undistorted;
-          rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
-          undistort(frame, undistorted, cameraMatrix, distCoeffs);
+          rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows),
+              color, 8);
+          undistort(frame, undistorted, cameraMatrix[i], distCoeffs[i]);
           putText(undistorted,
               "Undistorted. Presss 'y' to confirm, 'n' to restart",
               Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
@@ -234,6 +238,16 @@ int main(int argc, char *argv[])
   fs << "H" << "[";
   for (int i = 0; i < opts.file_paths.size(); ++i) {
     fs << H[i];
+  }
+  fs << "]";
+  fs << "cameraMatrix" << "[";
+  for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+    fs << cameraMatrix[i];
+  }
+  fs << "]";
+  fs << "distCoeffs" << "[";
+  for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+    fs << distCoeffs[i];
   }
   fs << "]";
 
