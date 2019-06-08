@@ -194,13 +194,14 @@ int main(int argc, char *argv[])
     // Step 2: Find good frames for alignment and stitching
     for (size_t i = 0; i < opts.file_paths.size() - 1; ++i) {
       Mat frameL, frameR;
+      Mat tL, tR;
       VideoCapture &videoL = videos[i], &videoR = videos[i + 1];
       bool found_good_frame = false;
       while (!found_good_frame) {
-        videoL >> frameL;
-        videoR >> frameR;
-        undistort(frameL, frameL, cameraMatrix[i], distCoeffs[i]);
-        undistort(frameR, frameR, cameraMatrix[i + 1], distCoeffs[i + 1]);
+        videoL >> tL;
+        videoR >> tR;
+        undistort(tL, frameL, cameraMatrix[i], distCoeffs[i]);
+        undistort(tR, frameR, cameraMatrix[i + 1], distCoeffs[i + 1]);
 
         bool chessboardL = findChessboardCorners(frameL, chessboardSize,
             chessboard_corners_orig[i]);
