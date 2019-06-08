@@ -82,9 +82,10 @@ int main(int argc, char *argv[])
       UState next_state = UState::NOT_STARTED;
       auto last_time = chrono::steady_clock::now();
       Mat frame;
+      bool calibrated = false;
 
       // Main loop for undistortion
-      while (true) {
+      while (!calibrated) {
         video >> frame;
 
         switch (state) {
@@ -158,7 +159,9 @@ int main(int argc, char *argv[])
           }
           case UState::ACCEPTED: {
             // swith to a next camera
-            continue;
+            calibrated = true;
+
+            break;
           }
         }
 
