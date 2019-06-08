@@ -196,6 +196,8 @@ int main(int argc, char *argv[])
       while (!found_good_frame) {
         videoL >> frameL;
         videoR >> frameR;
+        undistort(frameL, frameL, cameraMatrix[i], distCoeffs[i]);
+        undistort(frameR, frameR, cameraMatrix[i + 1], distCoeffs[i + 1]);
 
         bool chessboardL = findChessboardCorners(frameL, chessboardSize,
             chessboard_corners_orig[i]);
