@@ -48,21 +48,27 @@ int main(int argc, char *argv[])
   vector<Mat> distCoeffs(opts.file_paths.size());
 
   vector<Mat> images(opts.file_paths.size());
+  vector<VideoCapture> videos(opts.file_paths.size());
+  Size chessboardSize(opts.board_width, opts.board_height);
+
   if (!opts.video) {
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {
-      Mat image = imread(opts.file_paths[i]);
+      images[i] = imread(opts.file_paths[i]);
     }
   } else {
-    // Step #1. Remove distortion
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {
-      VideoCapture video(opts.file_paths[i]);
-      if (!video.isOpened()) {
+      videos[i].open(opts.file_paths[i]);
+      if (!videos[i].isOpened()) {
         cout << "Failed to open file " << opts.file_paths[i] << endl;
         return 3;
       }
+    }
+
+    // Step #1. Remove distortion
+    for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      VideoCapture &video = videos[i];
 
       UState state = UState::NOT_STARTED;
-      Size chessboardSize(opts.board_width, opts.board_height);
       vector<Point3f> obj;
       for(int j = 0; j < opts.board_width * opts.board_height; j++)
           // TODO: squareSize
@@ -180,34 +186,52 @@ int main(int argc, char *argv[])
           state = UState::GATHERING_DATA;
         }
       }
+    } // End of step 1: disctorion was removed
 
+    // Step 2: Find good frames for alignment and stitching
+    for (size_t i = 0; i < opts.file_paths.size() - 1; ++i) {
+      Mat frameL, frameR;
+      VideoCapture &videoL = videos[i], &videoR = videos[i + 1];
       bool found_good_frame = false;
       while (!found_good_frame) {
-        video >> frame;
-        Scalar color = Scalar(0, 0, 255); // red
-        if (findChessboardCorners(frame, Size(opts.board_width, opts.board_height),
-            chessboard_corners_orig[i])) {
-          float angle = angleToHorizon(chessboard_corners_orig[i], Size(opts.board_width, opts.board_height));
+        videoL >> frameL;
+        videoR >> frameR;
+
+        bool chessboardL = findChessboardCorners(frameL, chessboardSize,
+            chessboard_corners_orig[i]);
+        bool chessboardR = findChessboardCorners(frameR, chessboardSize,
+            chessboard_corners_orig[i + 1]);
+
+        // red or orange
+        Scalar color = chessboardL ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
+
+        if (chessboardL && chessboardR) {
+          float angle = angleToHorizon(chessboard_corners_orig[i],
+              chessboardSize);
           if (angle < 1) {
             color = Scalar(0, 255, 0); // green
+            found_good_frame = true;
+            images[i] = frameL;
+            images[i + 1] = frameR;
           } else if (angle < 10) {
             color = Scalar(0, 255, 255); // yellow
           }
-          putText(frame, "Angle: " + std::to_string(angle), Point2f(10, 30), FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+          putText(frameL, "Angle: " + std::to_string(angle), Point2f(10, 30),
+              FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
         }
-        rectangle(frame, Point2f(0, 0), Point2f(frame.cols, frame.rows), color, 8);
-        displayResult("Frame from camera " + std::to_string(i), frame);
+        rectangle(frameL, Point2f(0, 0), Point2f(frameL.cols, frameL.rows),
+            color, 8);
+        rectangle(frameR, Point2f(0, 0), Point2f(frameR.cols, frameR.rows),
+            color, 8);
+        displayResult("Frame from camera " + std::to_string(i), frameL);
+        displayResult("Frame from camera " + std::to_string(i + 1), frameR);
         cv::waitKey(30);
       }
     }
-
-    // TODO: step two. Alignment + stitching
-
-    return 0;
   }
 
   for (size_t i = 0; i < opts.file_paths.size(); ++i) {
-    Mat image = imread(opts.file_paths[i]);
+    Mat image = images[i];
 
     if (!projectToTheFloor(image, Size(opts.board_width, opts.board_height),
         projected[i], chessboard_corners_orig[i], chessboard_corners_target[i],
