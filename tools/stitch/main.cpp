@@ -71,6 +71,35 @@ int main(int argc, char *argv[])
     )
   }
 
+  vector<Mat> cameraMatrix(opts.file_paths.size());
+
+  FileNode fCameraMatrix = fs["cameraMatrix"];
+  if (fCameraMatrix.type() != FileNode::SEQ) {
+    cout << "cameraMatrix is not a sequence!" << endl;
+    return 4;
+  }
+
+  for (size_t index = 0; index < fCameraMatrix.size(); ++index) {
+    fCameraMatrix[index] >> cameraMatrix[index];
+    WITH_DEBUG(
+      cout << "Read matrix " << endl << cameraMatrix[index] << endl;
+    )
+  }
+
+  vector<Mat> distCoeffs(opts.file_paths.size());
+  FileNode fDistCoeffs = fs["distCoeffs"];
+  if (fDistCoeffs.type() != FileNode::SEQ) {
+    cout << "distCoeffs is not a sequence!" << endl;
+    return 4;
+  }
+
+  for (size_t index = 0; index < fDistCoeffs.size(); ++index) {
+    fDistCoeffs[index] >> distCoeffs[index];
+    WITH_DEBUG(
+      cout << "Read matrix " << endl << distCoeffs[index] << endl;
+    )
+  }
+
   fs.release();
 
   if (!opts.video) {
@@ -107,8 +136,9 @@ int main(int argc, char *argv[])
       for (size_t i = 0; i < videos.size(); ++i) {
         Mat frame;
         videos[i] >> frame;
-        // TODO: undistort
-        warpPerspective(frame, result, H[i], result_size, INTER_LINEAR,
+        Mat undistorted;
+        undistort(frame, undistorted, cameraMatrix[i], distCoeffs[i]);
+        warpPerspective(undistorted, result, H[i], result_size, INTER_LINEAR,
             BORDER_TRANSPARENT);
       }
       displayResult("Final", result);
