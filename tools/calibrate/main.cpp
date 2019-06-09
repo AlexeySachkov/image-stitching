@@ -315,6 +315,12 @@ int main(int argc, char *argv[])
 
   FileStorage fs(opts.output_file, FileStorage::WRITE);
 
+  fs << "video" << opts.video;
+  fs << "file_paths" << "[";
+  for (int i = 0; i < opts.file_paths.size(); ++i) {
+    fs << opts.file_paths[i];
+  }
+  fs << "]";
   fs << "result_size" << result_size;
   fs << "H" << "[";
   for (int i = 0; i < opts.file_paths.size(); ++i) {

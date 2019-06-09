@@ -18,7 +18,7 @@ extern command_line_opts opts;
 int main(int argc, char *argv[])
 {
   if (!parse_command_line_opts(argc, argv)) {
-    cout << "Usage: " << argv[0] << " -c=/path/to/conf.xml /path/to/img1.jpg /path/to/img2.jpg";
+    cout << "Usage: " << argv[0] << " -c=/path/to/conf.xml";
     return 1;
   }
 
@@ -27,6 +27,21 @@ int main(int argc, char *argv[])
   if (!fs.isOpened()) {
     cout << "Failed to open configuration file " << opts.output_file << endl;
     return 2;
+  }
+
+  fs["video"] >> opts.video;
+  FileNode fNames = fs["file_paths"];
+  if (fNames.type() != FileNode::SEQ) {
+    cout << "file_paths is not a sequence!" << endl;
+    return 4;
+  }
+
+  opts.file_paths.resize(fNames.size());
+  for (size_t index = 0; index < fNames.size(); ++index) {
+    fNames[index] >> opts.file_paths[index];
+    WITH_DEBUG(
+      cout << "Read file path " << endl << opts.file_paths[index] << endl;
+    )
   }
 
   if (opts.file_paths.empty()) {
@@ -58,16 +73,48 @@ int main(int argc, char *argv[])
 
   fs.release();
 
-  Mat img0 = imread(opts.file_paths.front());
-  Mat result(result_size, img0.type());
+  if (!opts.video) {
+    Mat img0 = imread(opts.file_paths.front());
+    Mat result(result_size, img0.type());
 
-  for (size_t i = 0; i < opts.file_paths.size(); ++i) {
-    Mat image = imread(opts.file_paths[i]);
-    warpPerspective(image, result, H[i], result_size, INTER_LINEAR, BORDER_TRANSPARENT);
-    displayResult("temp", result, true);
+    for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      Mat image = imread(opts.file_paths[i]);
+      warpPerspective(image, result, H[i], result_size, INTER_LINEAR,
+          BORDER_TRANSPARENT);
+      displayResult("temp", result, true);
+    }
+
+    displayResult("Final", result, true);
+  } else {
+    vector<VideoCapture> videos(opts.file_paths.size());
+    for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      videos[i].open(opts.file_paths[i]);
+      if (!videos[i].isOpened()) {
+        cout << "Failed to open file " << opts.file_paths[i] << "!" << endl;
+        return 5;
+      }
+    }
+
+    Mat t;
+    videos.front() >> t;
+    int type = t.type();
+    for (size_t i = 1; i < opts.file_paths.size(); ++i) {
+      videos[i] >> t; // skip first frame
+    }
+
+    while (true) {
+      Mat result(result_size, type);
+      for (size_t i = 0; i < videos.size(); ++i) {
+        Mat frame;
+        videos[i] >> frame;
+        // TODO: undistort
+        warpPerspective(frame, result, H[i], result_size, INTER_LINEAR,
+            BORDER_TRANSPARENT);
+      }
+      displayResult("Final", result);
+      waitKey(30);
+    }
   }
-
-  displayResult("Final", result, true);
 
   return 0;
 }
