@@ -258,7 +258,8 @@ int main(int argc, char *argv[])
         << chessboard_corners_target[i] << " and " << endl
         << chessboard_corners << endl;
     )
-    Mat preH = findHomography(chessboard_corners_target[i], chessboard_corners, CV_RANSAC);
+    Mat preH = findHomography(chessboard_corners_target[i], chessboard_corners,
+        CV_RANSAC);
 
     Mat temp;
     perspectiveTransform(Mat(image_corners_target[i]), temp, preH);
@@ -283,16 +284,11 @@ int main(int argc, char *argv[])
     }
 
     float dx = 0, dy = 0;
-    float sx = 0, sy = 0;
     if (minX < 0) {
       dx = fabs(minX);
-    } else {
-      sx = minX;
     }
     if (minY < 0) {
       dy = fabs(minY);
-    } else {
-      sy = minY;
     }
 
     for (int j = 0; j < chessboard_corners.size(); ++j) {
@@ -306,11 +302,12 @@ int main(int argc, char *argv[])
           << chessboard_corners_orig[i] << " and " << endl
           << chessboard_corners << endl;
       )
-      H[j] = findHomography(chessboard_corners_orig[j], chessboard_corners, CV_RANSAC);
+      H[j] = findHomography(chessboard_corners_orig[j], chessboard_corners,
+          CV_RANSAC);
     }
 
-    result_size = Size(max((float)result_size.width, maxX - sx),
-      max((float)result_size.height, maxY - sy));
+    result_size = Size(max((float)result_size.width, maxX + dx),
+      max((float)result_size.height, maxY + dy));
   }
 
   FileStorage fs(opts.output_file, FileStorage::WRITE);
