@@ -17,6 +17,8 @@ struct command_line_opts {
   int board_width = 5;
   int board_height = 3;
 
+  int angle = 1;
+
   std::string output_file = "conf.xml";
 };
 

@@ -214,12 +214,12 @@ int main(int argc, char *argv[])
         if (chessboardL && chessboardR) {
           float angle = angleToHorizon(chessboard_corners_orig[i],
               chessboardSize);
-          if (angle < 1) {
+          if (angle < (float)opts.angle) {
             color = Scalar(0, 255, 0); // green
             found_good_frame = true;
             images[i] = frameL;
             images[i + 1] = frameR;
-          } else if (angle < 10) {
+          } else if (angle < 2.0 * opts.angle) {
             color = Scalar(0, 255, 255); // yellow
           }
           putText(frameL, "Angle: " + std::to_string(angle), Point2f(10, 30),

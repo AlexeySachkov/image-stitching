@@ -64,6 +64,14 @@ bool parse_command_line_opts(int argc, char *argv[]) {
       }
 
       opts.number_of_frames = atoi(arg.substr(pos + 1).c_str());
+    } else if (arg.find("--angle") == 0) {
+      std::string::size_type pos = arg.find("=");
+      if (std::string::npos == pos) {
+        valid = false;
+        break;
+      }
+
+      opts.angle = atoi(arg.substr(pos + 1).c_str());
     } else {
       // assume argument is a path to an image
       opts.file_paths.push_back(arg);
