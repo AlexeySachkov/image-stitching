@@ -10,6 +10,10 @@
 void displayResult(
     const std::string &windowName, const cv::Mat &result, bool wait = false);
 
+std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
+    const std::vector<cv::Point2f> &chessboardCorners,
+    const cv::Size &boardSize);
+
 std::vector<cv::Point2f> extractCorners(
     const std::vector<std::vector<cv::Point2f>> &points);
 

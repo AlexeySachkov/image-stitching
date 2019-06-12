@@ -41,8 +41,8 @@ void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
     // where A - first, B - second, C - third
     // AB - row
     // AC - column
-    int w = (byRow) ? bs.width : bs.height;
-    int h = (byRow) ? bs.height : bs.width;
+    int w = bs.width;
+    int h = bs.height;
     if (first.x < second.x) {
       // columns goes from left to right
       jstart = 0;
@@ -70,37 +70,37 @@ void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
     }
   } else {
     // by column
-    // A B
-    // C
+    // A C
+    // B
     // where A - first, B - second, C - third
     // AB - column
     // AC - row
-    int w = (byRow) ? bs.width : bs.height;
-    int h = (byRow) ? bs.height : bs.width;
-    if (first.x > third.x) {
-      // columns goes from left to right
+    int w = bs.height;
+    int h = bs.width;
+    if (first.y < third.y) {
+      // rows goes from left to right
       jstart = 0;
       jend = w;
       jstep = 1;
     }
     else {
-      // columns goes from right to left
+      // rows goes from right to left
       jstart = w - 1;
       jend = -1;
       jstep = -1;
     }
 
-    if (first.y < second.y) {
-      // rows goes from top to bottom
-      istart = 0;
-      iend = h;
-      istep = 1;
-    }
-    else {
-      // rows goes from bottom to top
+    if (first.x > second.x) {
+      // columns goes from top to bottom
       istart = h - 1;
       iend = -1;
       istep = -1;
+    }
+    else {
+      // columns goes from bottom to top
+      istart = 0;
+      iend = h;
+      istep = 1;
     }
   }
 }
@@ -108,18 +108,24 @@ void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
 void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
     bool &byRow, int &istart, int &iend, int &istep, int &jstart, int &jend,
     int &jstep) {
-  byRow = true;
+  byRow = false;
+  int num = 1;
   for (int i = 1; i < bs.width; ++i) {
     if (p[i - 1].x > p[i].x) {
-      byRow = false;
+      ++num;
     }
   }
-  if (!byRow) {
+  if (num == bs.width) {
     byRow = true;
+  } else {
+    num = 1;
     for (int i = 1; i < bs.width; ++i) {
       if (p[i - 1].x < p[i].x) {
-        byRow = false;
+        ++num;
       }
+    }
+    if (num == bs.width) {
+      byRow = true;
     }
   }
 
@@ -132,11 +138,13 @@ void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
   } else {
     // by column
     cv::Point2f first = getPoint(p, bs.height, 0, 0);
-    cv::Point2f second = getPoint(p, bs.height, 0, 1);
-    cv::Point2f third = getPoint(p, bs.height, 1, 0);
+    cv::Point2f second = getPoint(p, bs.height, 1, 0);
+    cv::Point2f third = getPoint(p, bs.height, 0, 1);
     getSteps(false, bs, first, second, third, istart, iend, istep, jstart,
         jend, jstep);
   }
+}
+
 }
 
 std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
@@ -158,9 +166,9 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
       }
     }
   } else {
-    for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
-      for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-        result[i][j] = getPoint(chessboardCorners, boardSize.height, ii, jj);
+    for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
+      for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
+        result[j][i] = getPoint(chessboardCorners, boardSize.height, ii, jj);
       }
     }
   }
@@ -171,8 +179,6 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
 std::pair<cv::Point2f, cv::Point2f> getTwoBottomLeftPoints(
     const std::vector<std::vector<cv::Point2f>> &points) {
   return std::make_pair(points.back()[0], points.back()[1]);
-}
-
 }
 
 void displayResult(
@@ -270,9 +276,14 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 #if 0
   {
     int r = 1;
-    for (const auto &P : chessboardCornersOrig) {
-      cv::circle(temp, P, (r * 5), cv::Scalar(200, 250, 250), 3);
-      ++r;
+    std::vector<std::vector<cv::Point2f>> ordered = orderChessboardCorners(
+        chessboardCornersTemp, chessboardSize);
+    for (size_t i = 0; i < ordered.size(); ++i) {
+      for (size_t j = 0; j < ordered[i].size(); ++j) {
+        const cv::Point2f &P = ordered[i][j];
+        cv::circle(temp, P, (r * 5), cv::Scalar(200, 250, 250), 3);
+        ++r;
+      }
     }
   }
 #endif
