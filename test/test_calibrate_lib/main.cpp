@@ -10,6 +10,9 @@ int main(int argc, char **argv) {
   return RUN_ALL_TESTS();
 }
 
+// TODO: tests for areThereNMonotonousPoints
+// TODO: tests for getPointsOrientation
+
 static void print(const std::vector<std::vector<cv::Point2f>> &data,
     std::string &log) {
   log += "{\n";

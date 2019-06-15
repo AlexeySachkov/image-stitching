@@ -105,29 +105,66 @@ void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
   }
 }
 
+enum class Component {
+  X = 0, Y = 1
+};
+
+bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
+    const int N, const Component c) {
+  int numInc = 1;
+  int numDec = 1;
+  assert(N < p.size() && "Invalid input");
+  for (size_t i = 1; i < N; ++i) {
+    const auto cur = (cv::Vec<float, 2>)p[i];
+    const auto prev = (cv::Vec<float, 2>)p[i - 1];
+    if (cur[c] > prev[c])
+      ++numDec;
+    else
+      ++numInc;
+  }
+
+  return (N == numDec) || (N == numInc);
+}
+
+void getPointsOrientation(const std::vector<cv::Point2f> &p,
+    const cv::Size &bs, bool &orderedByRows, bool &transposed) {
+  // let's assume that points are ordered by rows and not transposed:
+  if (areThereNMonotonousPoints(p, bs.width, Component::X) {
+    orderedByRows = true;
+    transposed = false;
+    return;
+  }
+
+  // let's assume that points are ordered by columns and not transposed:
+  if (areThereNMonotonousPoints(p, bs.height, Component::Y) {
+    orderedByRows = false;
+    transposed = false;
+    return;
+  }
+
+  // let's assume that points are ordered by rows and transposed:
+  if (areThereNMonotonousPoints(p, bs.width, Component::Y) {
+    orderedByRows = true;
+    transposed = true;
+    return;
+  }
+
+  // let's assume that points are ordered by columns and transposed:
+  if (areThereNMonotonousPoints(p, bs.height, Component::X) {
+    orderedByRows = false;
+    transposed = true;
+    return;
+  }
+
+  assert(false && "Unexpected order of points");
+}
+
 void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
     bool &byRow, int &istart, int &iend, int &istep, int &jstart, int &jend,
     int &jstep) {
-  byRow = false;
-  int num = 1;
-  for (int i = 1; i < bs.width; ++i) {
-    if (p[i - 1].x > p[i].x) {
-      ++num;
-    }
-  }
-  if (num == bs.width) {
-    byRow = true;
-  } else {
-    num = 1;
-    for (int i = 1; i < bs.width; ++i) {
-      if (p[i - 1].x < p[i].x) {
-        ++num;
-      }
-    }
-    if (num == bs.width) {
-      byRow = true;
-    }
-  }
+  bool transposed;
+  getPointsOrientation(p, bs, byRow, transposed);
+  assert(!transposed && "Not supported yet");
 
   if (byRow) {
     cv::Point2f first = getPoint(p, bs.width, 0, 0);
