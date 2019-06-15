@@ -4,9 +4,13 @@ set(TARGET_NAME test_calibrate_lib)
 add_executable(${TARGET_NAME}
   main.cpp)
 
+target_include_directories(${TARGET_NAME} PRIVATE
+  ${CMAKE_SOURCE_DIR}/external/googletest/googletest/include)
+
 target_link_libraries(${TARGET_NAME}
   CommandLine
-  Calibrate)
+  Calibrate
+  gtest)
 
 install(TARGETS ${TARGET_NAME}
   RUNTIME DESTINATION tests)
