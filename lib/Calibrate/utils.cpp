@@ -33,37 +33,46 @@ const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
       (int)round(originalSize.height / ratio));
 }
 
-struct loop_control {
-  loop_control() = default;
-  loop_control(int start, int stop)
-    : start(start), step(start < stop ? 1 : -1), stop(stop) {}
-
-  int start, step, stop;
-};
-
-void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &A,
-    const cv::Point2f &B, const cv::Point2f &C, loop_control &wloop,
-    loop_control &hloop) {
-  // A B
-  // C
-  // where A - first, B - second, C - third
-  int wstride = bs.width;
-  int hstride = bs.height;
-
-  if (A.x < B.x) {
-    hloop = loop_control(0, wstride);
-  } else {
-    hloop = loop_control(wstride - 1, -1);
+std::vector<std::vector<cv::Point2f>> transpose(
+    const std::vector<std::vector<cv::Point2f>> &src) {
+  std::vector<std::vector<cv::Point2f>> result(src.front().size());
+  for (size_t i = 0; i < result.size(); ++i) {
+    for (size_t j = 0; j < src.size(); ++j) {
+      result[i].push_back(src[j][i]);
+    }
   }
 
-  if (A.y < C.y) {
-    wloop = loop_control(0, hstride);
-  } else {
-    wloop = loop_control(hstride - 1, -1);
+  return result;
+}
+
+std::vector<std::vector<cv::Point2f>> interpretAsByColumn2dArray(
+    const std::vector<cv::Point2f> &src, const cv::Size &size) {
+  std::vector<std::vector<cv::Point2f>> result(size.height);
+  assert(src.size() == size.height * size.width && "Invalid input");
+  size_t index = 0;
+  for (int i = 0; i < size.width; ++i) {
+    for (size_t j = 0; j < result.size(); ++j) {
+      result[j].push_back(src[index]);
+      ++index;
+    }
   }
 
-  if (!byRow)
-    std::swap(hloop, wloop);
+  return result;
+}
+
+std::vector<std::vector<cv::Point2f>> interpretAsByRow2dArray(
+    const std::vector<cv::Point2f> &src, const cv::Size &size) {
+  std::vector<std::vector<cv::Point2f>> result(size.height);
+  assert(src.size() == size.height * size.width && "Invalid input");
+  size_t index = 0;
+  for (size_t i = 0; i < result.size(); ++i) {
+    for (int j = 0; j < size.width; ++j) {
+      result[i].push_back(src[index]);
+      ++index;
+    }
+  }
+
+  return result;
 }
 
 enum class Component : size_t {
@@ -72,19 +81,29 @@ enum class Component : size_t {
 
 bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
     const int N, const Component c) {
-  int numInc = 1;
-  int numDec = 1;
-  assert(N < p.size() && "Invalid input");
-  for (size_t i = 1; i < N; ++i) {
+  int numDec = 0;
+  assert(N + 1 < p.size() && "Invalid input");
+  for (size_t i = 1; i < N + 1; ++i) {
     const auto cur = (cv::Vec<float, 2>)p[i];
     const auto prev = (cv::Vec<float, 2>)p[i - 1];
-    if (cur[static_cast<size_t>(c)] > prev[static_cast<size_t>(c)])
+    if (cur[static_cast<size_t>(c)] > prev[static_cast<size_t>(c)]) {
       ++numDec;
-    else if (cur[static_cast<size_t>(c)] < prev[static_cast<size_t>(c)])
+    } else {
+      break;
+    }
+  }
+  int numInc = 0;
+  for (size_t i = 1; i < N + 1; ++i) {
+    const auto cur = (cv::Vec<float, 2>)p[i];
+    const auto prev = (cv::Vec<float, 2>)p[i - 1];
+    if (cur[static_cast<size_t>(c)] < prev[static_cast<size_t>(c)]) {
       ++numInc;
+    } else {
+      break;
+    }
   }
 
-  return (N == numDec) || (N == numInc);
+  return (N - 1 == numDec && 0 == numInc) || (N - 1 == numInc && 0 == numDec);
 }
 
 void getPointsOrientation(const std::vector<cv::Point2f> &p,
@@ -103,16 +122,16 @@ void getPointsOrientation(const std::vector<cv::Point2f> &p,
     return;
   }
 
-  // let's assume that points are ordered by rows and transposed:
+  // let's assume that points are ordered by columns and transposed:
   if (areThereNMonotonousPoints(p, bs.width, Component::Y)) {
-    orderedByRows = true;
+    orderedByRows = false;
     transposed = true;
     return;
   }
 
-  // let's assume that points are ordered by columns and transposed:
+  // let's assume that points are ordered by rows and transposed:
   if (areThereNMonotonousPoints(p, bs.height, Component::X)) {
-    orderedByRows = false;
+    orderedByRows = true;
     transposed = true;
     return;
   }
@@ -120,52 +139,58 @@ void getPointsOrientation(const std::vector<cv::Point2f> &p,
   assert(false && "Unexpected order of points");
 }
 
-void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
-    bool &byRow, loop_control &wloop, loop_control &hloop) {
-  bool transposed;
-  getPointsOrientation(p, bs, byRow, transposed);
-  assert(!transposed && "Not supported yet");
-
-  cv::Point2f first, second, third;
-
-  if (byRow) {
-    first = getPoint(p, bs.width, 0, 0);
-    second = getPoint(p, bs.width, 0, 1);
-    third = getPoint(p, bs.width, 1, 0);
-  } else {
-    // by column
-    first = getPoint(p, bs.height, 0, 0);
-    second = getPoint(p, bs.height, 1, 0);
-    third = getPoint(p, bs.height, 0, 1);
-  }
-
-  getSteps(byRow, bs, first, second, third, wloop, hloop);
-}
-
 }
 
 std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
     const std::vector<cv::Point2f> &chessboardCorners,
     const cv::Size &boardSize) {
-  std::vector<std::vector<cv::Point2f>> result(boardSize.height,
-      std::vector<cv::Point2f>(boardSize.width));
-
   bool isByRow = false;
-  loop_control iloop, jloop;
-  getSteps(chessboardCorners, boardSize, isByRow, iloop, jloop);
+  bool isTransposed = false;
+  getPointsOrientation(chessboardCorners, boardSize, isByRow, isTransposed);
+
+  std::vector<std::vector<cv::Point2f>> result;
+  cv::Size tSize = isTransposed ? cv::Size(boardSize.height, boardSize.width)
+      : boardSize;
 
   if (isByRow) {
-    for (int i = 0, ii = iloop.start; ii != iloop.stop; ++i, ii += iloop.step) {
-      for (int j = 0, jj = jloop.start; jj != jloop.stop; ++j, jj += jloop.step) {
-        result[i][j] = getPoint(chessboardCorners, boardSize.width, ii, jj);
-      }
-    }
+    result = interpretAsByRow2dArray(chessboardCorners, tSize);
   } else {
-    for (int i = 0, ii = iloop.start; ii != iloop.stop; ++i, ii += iloop.step) {
-      for (int j = 0, jj = jloop.start; jj != jloop.stop; ++j, jj += jloop.step) {
-        result[j][i] = getPoint(chessboardCorners, boardSize.height, ii, jj);
-      }
+    result = interpretAsByColumn2dArray(chessboardCorners, tSize);
+  }
+
+  if (isTransposed) {
+    result = transpose(result);
+  }
+
+  // Now result is by-row 2d array of points
+
+  bool needToReverseColumns = false;
+  bool needToReverseRows = false;
+
+  if (isTransposed) {
+    // the top row should have the biggest X value, because it was the
+    // rightmost column before transpose
+    if (result[0][0].x < result[1][0].x)
+      needToReverseRows = true;
+    // the leftmost column should have the smallest Y value, because it was
+    // the top top before transpose
+    if (result[0][0].y > result[0][1].y)
+      needToReverseColumns = true;
+  } else {
+    if (result[0][0].y > result[1][0].y)
+      needToReverseRows = true;
+    if (result[0][0].x > result[0][1].x)
+      needToReverseColumns = true;
+  }
+
+  if (needToReverseColumns) {
+    for (auto &row : result) {
+      std::reverse(row.begin(), row.end());
     }
+  }
+
+  if (needToReverseRows) {
+    std::reverse(result.begin(), result.end());
   }
 
   return result;

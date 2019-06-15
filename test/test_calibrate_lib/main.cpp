@@ -90,6 +90,15 @@ std::vector<std::vector<cv::Point2f>> board(const cv::Size &size) {
   return result;
 }
 
+std::vector<std::vector<cv::Point2f>> transposedBoard(const cv::Size &size) {
+  std::vector<std::vector<cv::Point2f>> result(size.height);
+  for (int i = 0; i < size.height; ++i) {
+    result[i] = column(size.height - i, size.width, Direction::INC);
+  }
+
+  return result;
+}
+
 void append(std::vector<cv::Point2f> &v, const std::vector<cv::Point2f> &n) {
   for (const auto &item : n) {
     v.push_back(item);
@@ -227,6 +236,139 @@ TEST(OrderChessboardCorners, Test8) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test1) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by rows
+  // rows ordered from top to bottom
+  // columns ordered from left to right
+  append(input, row(1, boardSize.height, Direction::INC));
+  append(input, row(2, boardSize.height, Direction::INC));
+  append(input, row(3, boardSize.height, Direction::INC));
+  append(input, row(4, boardSize.height, Direction::INC));
+  append(input, row(5, boardSize.height, Direction::INC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test2) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by rows
+  // rows ordered from top to bottom
+  // columns ordered from right to left
+  append(input, row(1, boardSize.height, Direction::DEC));
+  append(input, row(2, boardSize.height, Direction::DEC));
+  append(input, row(3, boardSize.height, Direction::DEC));
+  append(input, row(4, boardSize.height, Direction::DEC));
+  append(input, row(5, boardSize.height, Direction::DEC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected) << "input: " << input << "\n"
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test3) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by rows
+  // rows ordered from bottom to top
+  // columns ordered from left to right
+  append(input, row(5, boardSize.height, Direction::INC));
+  append(input, row(4, boardSize.height, Direction::INC));
+  append(input, row(3, boardSize.height, Direction::INC));
+  append(input, row(2, boardSize.height, Direction::INC));
+  append(input, row(1, boardSize.height, Direction::INC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+
+}
+
+TEST(OrderChessboardCorners, Transposed_Test4) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by rows
+  // rows ordered from bottom to top
+  // columns ordered from right to left
+  append(input, row(5, boardSize.height, Direction::DEC));
+  append(input, row(4, boardSize.height, Direction::DEC));
+  append(input, row(3, boardSize.height, Direction::DEC));
+  append(input, row(2, boardSize.height, Direction::DEC));
+  append(input, row(1, boardSize.height, Direction::DEC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test5) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by columns
+  // rows ordered from top to bottom
+  // columns ordered from left to right
+  append(input, column(1, boardSize.width, Direction::INC));
+  append(input, column(2, boardSize.width, Direction::INC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test6) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by columns
+  // rows ordered from top to bottom
+  // columns ordered from right to left
+  append(input, column(2, boardSize.width, Direction::INC));
+  append(input, column(1, boardSize.width, Direction::INC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test7) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by columns
+  // rows ordered from bottom to top
+  // columns ordered from left to right
+  append(input, column(1, boardSize.width, Direction::DEC));
+  append(input, column(2, boardSize.width, Direction::DEC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+TEST(OrderChessboardCorners, Transposed_Test8) {
+  cv::Size boardSize(5, 2); // two rows, five columns
+  std::vector<cv::Point2f> input;
+  // by columns
+  // rows ordered from bottom to top
+  // columns ordered from right to left
+  append(input, column(2, boardSize.width, Direction::DEC));
+  append(input, column(1, boardSize.width, Direction::DEC));
+
+  auto result = orderChessboardCorners(input, boardSize);
+  auto expected = transposedBoard(boardSize);
   ASSERT_EQ(result, expected)
       << "result: " << result << "expected: " << expected;
 }
