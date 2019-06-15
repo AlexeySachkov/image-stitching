@@ -105,7 +105,7 @@ void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
   }
 }
 
-enum class Component {
+enum class Component : size_t {
   X = 0, Y = 1
 };
 
@@ -117,7 +117,7 @@ bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
   for (size_t i = 1; i < N; ++i) {
     const auto cur = (cv::Vec<float, 2>)p[i];
     const auto prev = (cv::Vec<float, 2>)p[i - 1];
-    if (cur[c] > prev[c])
+    if (cur[static_cast<size_t>(c)] > prev[static_cast<size_t>(c)])
       ++numDec;
     else
       ++numInc;
@@ -129,28 +129,28 @@ bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
 void getPointsOrientation(const std::vector<cv::Point2f> &p,
     const cv::Size &bs, bool &orderedByRows, bool &transposed) {
   // let's assume that points are ordered by rows and not transposed:
-  if (areThereNMonotonousPoints(p, bs.width, Component::X) {
+  if (areThereNMonotonousPoints(p, bs.width, Component::X)) {
     orderedByRows = true;
     transposed = false;
     return;
   }
 
   // let's assume that points are ordered by columns and not transposed:
-  if (areThereNMonotonousPoints(p, bs.height, Component::Y) {
+  if (areThereNMonotonousPoints(p, bs.height, Component::Y)) {
     orderedByRows = false;
     transposed = false;
     return;
   }
 
   // let's assume that points are ordered by rows and transposed:
-  if (areThereNMonotonousPoints(p, bs.width, Component::Y) {
+  if (areThereNMonotonousPoints(p, bs.width, Component::Y)) {
     orderedByRows = true;
     transposed = true;
     return;
   }
 
   // let's assume that points are ordered by columns and transposed:
-  if (areThereNMonotonousPoints(p, bs.height, Component::X) {
+  if (areThereNMonotonousPoints(p, bs.height, Component::X)) {
     orderedByRows = false;
     transposed = true;
     return;
