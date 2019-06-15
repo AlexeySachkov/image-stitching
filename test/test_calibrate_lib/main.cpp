@@ -2,7 +2,11 @@
 
 #include "gtest/gtest.h"
 
+#include "opencv2/core/core.hpp"
+#include "opencv2/highgui/highgui.hpp"
+
 #include <iostream>
+#include <string>
 #include <vector>
 
 int main(int argc, char **argv) {
@@ -29,23 +33,33 @@ std::ostream& operator<<(std::ostream& os,
 
 namespace {
 
-void validate(const std::vector<std::vector<cv::Point2f>> &result,
-    const std::vector<std::vector<cv::Point2f>> &expected) {
-  ASSERT_EQ(result.size(), expected.size());
-  for (size_t i = 0; i < result.size(); ++i) {
-    ASSERT_EQ(result[i].size(), expected[i].size()) << "i = " << i;
-  }
-
-  for (size_t i = 0; i < result.size(); ++i) {
-    for (size_t j = 0; j < result[i].size(); ++j) {
-      ASSERT_EQ(result[i][j], expected[i][j]) << "i = " << i << ", j = " << j;
-    }
-  }
-}
-
 enum class Direction {
   INC, DEC
 };
+
+void validate(const std::vector<std::vector<cv::Point2f>> &data,
+    const cv::Size &size) {
+  ASSERT_EQ(data.size(), size.height);
+  for (size_t i = 0; i < data.size(); ++i) {
+    ASSERT_EQ(data[i].size(), size.width);
+  }
+  for (int i = 0; i < size.height; ++i) {
+    for (int j = 0; j < size.width; ++j) {
+      int nx = j - 1;
+      if (nx >= 0) {
+        ASSERT_GT(data[i][j].x, data[i][nx].x)
+            << "i,j = (" << i << ", " << j << ");"
+            << "ny, nx = (" << i << ", " << nx << ")";
+      }
+      int ny = i - 1;
+      if (ny >= 0) {
+        ASSERT_GT(data[i][j].y, data[ny][j].y)
+            << "i,j = (" << i << ", " << j << ");"
+            << "ny, nx = (" << ny << ", " << j << ")";
+      }
+    }
+  }
+}
 
 std::vector<cv::Point2f> row(float Y, int N, Direction d) {
   std::vector<cv::Point2f> result(N);
@@ -95,9 +109,8 @@ TEST(OrderChessboardCorners, Test1) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test2) {
@@ -112,9 +125,8 @@ TEST(OrderChessboardCorners, Test2) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test3) {
@@ -128,9 +140,8 @@ TEST(OrderChessboardCorners, Test3) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test4) {
@@ -144,9 +155,8 @@ TEST(OrderChessboardCorners, Test4) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test5) {
@@ -163,9 +173,8 @@ TEST(OrderChessboardCorners, Test5) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test6) {
@@ -182,9 +191,8 @@ TEST(OrderChessboardCorners, Test6) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test7) {
@@ -201,9 +209,8 @@ TEST(OrderChessboardCorners, Test7) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
-  if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
 }
 
 TEST(OrderChessboardCorners, Test8) {
@@ -220,7 +227,48 @@ TEST(OrderChessboardCorners, Test8) {
 
   auto result = orderChessboardCorners(input, boardSize);
   auto expected = board(boardSize);
-  validate(result, expected);
+  ASSERT_EQ(result, expected)
+      << "result: " << result << "expected: " << expected;
+}
+
+#define _STRINGIFY(X) #X
+#define STRINGIFY(X) _STRINGIFY(X)
+
+TEST(OrderChessboardCorners, RealImage1) {
+  cv::Mat image = cv::imread(
+      std::string(STRINGIFY(INPUTS_DIR)) + "/chessboard_corners/3x4.jpg");
+  ASSERT_FALSE(image.empty());
+  std::vector<cv::Point2f> chessboardCorners;
+  cv::Size boardSize(3, 4);
+  ASSERT_TRUE(findChessboardCorners(image, boardSize, chessboardCorners));
+  auto result = orderChessboardCorners(chessboardCorners, boardSize);
+  validate(result, boardSize);
   if (HasFatalFailure())
-    FAIL() << "result: " << result << "expected: " << expected;
+    FAIL() << "result: " << result;
+}
+
+TEST(OrderChessboardCorners, RealImage2) {
+  cv::Mat image = cv::imread(
+      std::string(STRINGIFY(INPUTS_DIR)) + "/chessboard_corners/3x5.jpg");
+  ASSERT_FALSE(image.empty());
+  std::vector<cv::Point2f> chessboardCorners;
+  cv::Size boardSize(3, 5);
+  ASSERT_TRUE(findChessboardCorners(image, boardSize, chessboardCorners));
+  auto result = orderChessboardCorners(chessboardCorners, boardSize);
+  validate(result, boardSize);
+  if (HasFatalFailure())
+    FAIL() << "result: " << result;
+}
+
+TEST(OrderChessboardCorners, RealImage3) {
+  cv::Mat image = cv::imread(
+      std::string(STRINGIFY(INPUTS_DIR)) + "/chessboard_corners/5x3.jpg");
+  ASSERT_FALSE(image.empty());
+  std::vector<cv::Point2f> chessboardCorners;
+  cv::Size boardSize(5, 3);
+  ASSERT_TRUE(findChessboardCorners(image, boardSize, chessboardCorners));
+  auto result = orderChessboardCorners(chessboardCorners, boardSize);
+  validate(result, boardSize);
+  if (HasFatalFailure())
+    FAIL() << "result: " << result;
 }

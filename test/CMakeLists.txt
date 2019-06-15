@@ -1,5 +1,6 @@
 set(TESTS_WD ${CMAKE_CURRENT_BINARY_DIR})
 set(INPUTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Inputs)
+add_definitions(-DINPUTS_DIR=${INPUTS_DIR})
 
 add_subdirectory(test_calibrate_lib)
 
