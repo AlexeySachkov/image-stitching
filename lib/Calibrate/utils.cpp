@@ -6,6 +6,7 @@
 #include "opencv2/highgui/highgui.hpp"
 
 #include <cmath>
+#include <algorithm>
 
 extern command_line_opts opts;
 
@@ -32,77 +33,37 @@ const cv::Size calculateSizeForDisplaying(const cv::Size &originalSize,
       (int)round(originalSize.height / ratio));
 }
 
-void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &first,
-    const cv::Point2f &second, const cv::Point2f &third, int &istart,
-    int &iend, int &istep, int &jstart, int &jend, int &jstep) {
-  if (byRow) {
-    // A B
-    // C
-    // where A - first, B - second, C - third
-    // AB - row
-    // AC - column
-    int w = bs.width;
-    int h = bs.height;
-    if (first.x < second.x) {
-      // columns goes from left to right
-      jstart = 0;
-      jend = w;
-      jstep = 1;
-    }
-    else {
-      // columns goes from right to left
-      jstart = w - 1;
-      jend = -1;
-      jstep = -1;
-    }
+struct loop_control {
+  loop_control() = default;
+  loop_control(int start, int stop)
+    : start(start), step(start < stop ? 1 : -1), stop(stop) {}
 
-    if (first.y < third.y) {
-      // rows goes from top to bottom
-      istart = 0;
-      iend = h;
-      istep = 1;
-    }
-    else {
-      // rows goes from bottom to top
-      istart = h - 1;
-      iend = -1;
-      istep = -1;
-    }
+  int start, step, stop;
+};
+
+void getSteps(bool byRow, const cv::Size &bs, const cv::Point2f &A,
+    const cv::Point2f &B, const cv::Point2f &C, loop_control &wloop,
+    loop_control &hloop) {
+  // A B
+  // C
+  // where A - first, B - second, C - third
+  int wstride = bs.width;
+  int hstride = bs.height;
+
+  if (A.x < B.x) {
+    hloop = loop_control(0, wstride);
   } else {
-    // by column
-    // A C
-    // B
-    // where A - first, B - second, C - third
-    // AB - column
-    // AC - row
-    int w = bs.height;
-    int h = bs.width;
-    if (first.y < third.y) {
-      // rows goes from left to right
-      jstart = 0;
-      jend = w;
-      jstep = 1;
-    }
-    else {
-      // rows goes from right to left
-      jstart = w - 1;
-      jend = -1;
-      jstep = -1;
-    }
-
-    if (first.x > second.x) {
-      // columns goes from top to bottom
-      istart = h - 1;
-      iend = -1;
-      istep = -1;
-    }
-    else {
-      // columns goes from bottom to top
-      istart = 0;
-      iend = h;
-      istep = 1;
-    }
+    hloop = loop_control(wstride - 1, -1);
   }
+
+  if (A.y < C.y) {
+    wloop = loop_control(0, hstride);
+  } else {
+    wloop = loop_control(hstride - 1, -1);
+  }
+
+  if (!byRow)
+    std::swap(hloop, wloop);
 }
 
 enum class Component : size_t {
@@ -160,26 +121,25 @@ void getPointsOrientation(const std::vector<cv::Point2f> &p,
 }
 
 void getSteps(const std::vector<cv::Point2f> &p, const cv::Size &bs,
-    bool &byRow, int &istart, int &iend, int &istep, int &jstart, int &jend,
-    int &jstep) {
+    bool &byRow, loop_control &wloop, loop_control &hloop) {
   bool transposed;
   getPointsOrientation(p, bs, byRow, transposed);
   assert(!transposed && "Not supported yet");
 
+  cv::Point2f first, second, third;
+
   if (byRow) {
-    cv::Point2f first = getPoint(p, bs.width, 0, 0);
-    cv::Point2f second = getPoint(p, bs.width, 0, 1);
-    cv::Point2f third = getPoint(p, bs.width, 1, 0);
-    getSteps(true, bs, first, second, third, istart, iend, istep, jstart,
-        jend, jstep);
+    first = getPoint(p, bs.width, 0, 0);
+    second = getPoint(p, bs.width, 0, 1);
+    third = getPoint(p, bs.width, 1, 0);
   } else {
     // by column
-    cv::Point2f first = getPoint(p, bs.height, 0, 0);
-    cv::Point2f second = getPoint(p, bs.height, 1, 0);
-    cv::Point2f third = getPoint(p, bs.height, 0, 1);
-    getSteps(false, bs, first, second, third, istart, iend, istep, jstart,
-        jend, jstep);
+    first = getPoint(p, bs.height, 0, 0);
+    second = getPoint(p, bs.height, 1, 0);
+    third = getPoint(p, bs.height, 0, 1);
   }
+
+  getSteps(byRow, bs, first, second, third, wloop, hloop);
 }
 
 }
@@ -191,20 +151,18 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
       std::vector<cv::Point2f>(boardSize.width));
 
   bool isByRow = false;
-  int jstart, jend, jstep;
-  int istart, iend, istep;
-  getSteps(chessboardCorners, boardSize, isByRow, istart, iend, istep, jstart,
-      jend, jstep);
+  loop_control iloop, jloop;
+  getSteps(chessboardCorners, boardSize, isByRow, iloop, jloop);
 
   if (isByRow) {
-    for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-      for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
+    for (int i = 0, ii = iloop.start; ii != iloop.stop; ++i, ii += iloop.step) {
+      for (int j = 0, jj = jloop.start; jj != jloop.stop; ++j, jj += jloop.step) {
         result[i][j] = getPoint(chessboardCorners, boardSize.width, ii, jj);
       }
     }
   } else {
-    for (int i = 0, ii = istart; ii != iend; ++i, ii += istep) {
-      for (int j = 0, jj = jstart; jj != jend; ++j, jj += jstep) {
+    for (int i = 0, ii = iloop.start; ii != iloop.stop; ++i, ii += iloop.step) {
+      for (int j = 0, jj = jloop.start; jj != jloop.stop; ++j, jj += jloop.step) {
         result[j][i] = getPoint(chessboardCorners, boardSize.height, ii, jj);
       }
     }
