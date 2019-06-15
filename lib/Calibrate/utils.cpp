@@ -81,13 +81,16 @@ enum class Component : size_t {
 
 bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
     const int N, const Component c) {
+  float minDist = 0.75 * cv::norm(p[0] - p[1]);
+
   int numDec = 0;
   assert(N + 1 < p.size() && "Invalid input");
   for (size_t i = 1; i < N + 1; ++i) {
     const auto cur = (cv::Vec<float, 2>)p[i];
     const auto prev = (cv::Vec<float, 2>)p[i - 1];
     if (cur[static_cast<size_t>(c)] > prev[static_cast<size_t>(c)]) {
-      ++numDec;
+      if (fabs(cur[static_cast<size_t>(c)] - prev[static_cast<size_t>(c)]) > minDist)
+        ++numDec;
     } else {
       break;
     }
@@ -97,7 +100,8 @@ bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
     const auto cur = (cv::Vec<float, 2>)p[i];
     const auto prev = (cv::Vec<float, 2>)p[i - 1];
     if (cur[static_cast<size_t>(c)] < prev[static_cast<size_t>(c)]) {
-      ++numInc;
+      if (fabs(cur[static_cast<size_t>(c)] - prev[static_cast<size_t>(c)]) > minDist)
+        ++numInc;
     } else {
       break;
     }
@@ -293,7 +297,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 #endif
 
   displayResult("temp", temp, true);
-#if 0
+#if 1
   {
     int r = 1;
     std::vector<std::vector<cv::Point2f>> ordered = orderChessboardCorners(
@@ -308,15 +312,25 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   }
 #endif
 
-  // assume that we could esimate board size in pixel using two leftmost points
-  // at the bottom of the chessboard
-  auto twoPoints = getTwoBottomLeftPoints(orderChessboardCorners(
-      chessboardCornersTemp, chessboardSize));
+  bool t, isTransposed;
+  getPointsOrientation(chessboardCornersTemp, chessboardSize, t, isTransposed);
+  auto ordered = orderChessboardCorners(chessboardCornersTemp, chessboardSize);
 
-  cv::Point2f blp = twoPoints.first;
-  cv::Point2f blpn = twoPoints.second;
+  // assume that we could esimate board size in pixel using two leftmost
+  // points at the bottom of the chessboard
+  cv::Point2f blp, blpn;
+  if (isTransposed) {
+    // image was transposed, so, instead of two leftmost points at the bottom
+    // we should use two bottom points in the rightmost column
+    blp = ordered[chessboardSize.height - 1][chessboardSize.width - 1];
+    blpn = ordered[chessboardSize.height - 2][chessboardSize.width - 1];
+  } else {
+    blp = ordered[chessboardSize.height - 1][0];
+    blpn = ordered[chessboardSize.height - 1][1];
+  }
+
   float squareSize = norm(blp - blpn);
-#if 0
+#if 1
   cv::circle(temp, blp, 30, cv::Scalar(0, 255, 0), 10);
   cv::circle(temp, blpn, 50, cv::Scalar(0, 255, 0), 10);
 #endif
@@ -338,21 +352,20 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, targetRectangleCorners[i],
         targetRectangleCorners[(i + 1) % 4], cv::Scalar(255, 0, 0), 5 + 2 * i);
-#if 0
+#if 1
     cv::circle(temp, targetRectangleCorners[i], 5 * (i + 1),
         cv::Scalar(255, 255, 0), 5 + 2 * i);
 #endif
   }
 
-  std::vector<cv::Point2f> currentRectangleCorners =
-      extractCorners(orderChessboardCorners(chessboardCornersTemp, chessboardSize));
+  std::vector<cv::Point2f> currentRectangleCorners = extractCorners(ordered);
   chessboardCornersOrig = currentRectangleCorners;
 
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, currentRectangleCorners[i],
         currentRectangleCorners[(i + 1) % 4],
         cv::Scalar(0, 0, 255), 5 + 2 * i);
-#if 0
+#if 1
     cv::circle(temp, currentRectangleCorners[i], 10 * (i + 1),
         cv::Scalar(0, 255, 255), 5 + 2 * i);
 #endif
@@ -368,6 +381,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 
   corners_info_t ic(imageCorners);
   cv::warpPerspective(temp, result, H, cv::Size(ic.width, ic.height));
+  displayResult("temp", result, true);
   chessboardCorners = targetRectangleCorners;
   for (auto &P : chessboardCorners) {
     P.x += shift.width;
