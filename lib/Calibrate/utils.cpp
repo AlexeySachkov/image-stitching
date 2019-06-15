@@ -119,7 +119,7 @@ bool areThereNMonotonousPoints(const std::vector<cv::Point2f> &p,
     const auto prev = (cv::Vec<float, 2>)p[i - 1];
     if (cur[static_cast<size_t>(c)] > prev[static_cast<size_t>(c)])
       ++numDec;
-    else
+    else if (cur[static_cast<size_t>(c)] < prev[static_cast<size_t>(c)])
       ++numInc;
   }
 
