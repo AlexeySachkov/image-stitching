@@ -40,8 +40,10 @@ int main(int argc, char *argv[])
   }
 
   vector<Mat> projected(opts.file_paths.size());
-  vector<vector<Point2f>> chessboard_corners_orig(opts.file_paths.size());
-  vector<vector<Point2f>> chessboard_corners_target(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_orig_left(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_target_left(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_orig_right(opts.file_paths.size());
+  vector<vector<Point2f>> chessboard_corners_target_right(opts.file_paths.size());
   vector<vector<Point2f>> image_corners_target(opts.file_paths.size());
   vector<Mat> H(opts.file_paths.size());
   vector<Mat> cameraMatrix(opts.file_paths.size());
@@ -112,11 +114,11 @@ int main(int argc, char *argv[])
             auto time = chrono::steady_clock::now();
             color = Scalar(0, 0, 255); // red
             if (findChessboardCorners(frame, chessboardSize,
-                chessboard_corners_orig[i])) {
+                chessboard_corners_orig_left[i])) {
               color = Scalar(0, 255, 255); // yellow
               chrono::duration<double, milli> elapsed = time - last_time;
               if (elapsed.count() >= opts.delay) {
-                image_points.push_back(chessboard_corners_orig[i]);
+                image_points.push_back(chessboard_corners_orig_left[i]);
                 color = Scalar(0, 255, 0); // green
                 last_time = time;
               }
@@ -204,15 +206,15 @@ int main(int argc, char *argv[])
         undistort(tR, frameR, cameraMatrix[i + 1], distCoeffs[i + 1]);
 
         bool chessboardL = findChessboardCorners(frameL, chessboardSize,
-            chessboard_corners_orig[i]);
+            chessboard_corners_orig_left[i]);
         bool chessboardR = findChessboardCorners(frameR, chessboardSize,
-            chessboard_corners_orig[i + 1]);
+            chessboard_corners_orig_left[i + 1]);
 
         // red or orange
         Scalar color = chessboardL ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
 
         if (chessboardL && chessboardR) {
-          float angle = angleToHorizon(chessboard_corners_orig[i],
+          float angle = angleToHorizon(chessboard_corners_orig_left[i],
               chessboardSize);
           if (angle < (float)opts.angle) {
             color = Scalar(0, 255, 0); // green
@@ -240,7 +242,7 @@ int main(int argc, char *argv[])
     Mat image = images[i];
 
     if (!projectToTheFloor(image, Size(opts.board_width, opts.board_height),
-        projected[i], chessboard_corners_orig[i], chessboard_corners_target[i],
+        projected[i], chessboard_corners_orig_left[i], chessboard_corners_target_left[i],
         image_corners_target[i])) {
       cout << "Failed to handle image #" << i + 1 << "!" << endl;
       return -1;
@@ -249,16 +251,16 @@ int main(int argc, char *argv[])
     WITH_DEBUG(cout << "Successfully projected " << i << "-th image to the floor" << endl;)
   }
 
-  vector<Point2f> chessboard_corners = chessboard_corners_target.front();
+  vector<Point2f> chessboard_corners = chessboard_corners_target_left.front();
   Size result_size(projected.front().cols, projected.front().rows);
 
   for (size_t i = 1; i < opts.file_paths.size(); ++i) {
     WITH_DEBUG(
       cout << "Trying to find homography between " << endl
-        << chessboard_corners_target[i] << " and " << endl
+        << chessboard_corners_target_left[i] << " and " << endl
         << chessboard_corners << endl;
     )
-    Mat preH = findHomography(chessboard_corners_target[i], chessboard_corners,
+    Mat preH = findHomography(chessboard_corners_target_left[i], chessboard_corners,
         CV_RANSAC);
 
     Mat temp;
@@ -299,10 +301,10 @@ int main(int argc, char *argv[])
     for (int j = 0; j <= i; ++j) {
       WITH_DEBUG(
         cout << "Trying to find homography between " << endl
-          << chessboard_corners_orig[i] << " and " << endl
+          << chessboard_corners_orig_left[i] << " and " << endl
           << chessboard_corners << endl;
       )
-      H[j] = findHomography(chessboard_corners_orig[j], chessboard_corners,
+      H[j] = findHomography(chessboard_corners_orig_left[j], chessboard_corners,
           CV_RANSAC);
     }
 

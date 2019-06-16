@@ -285,7 +285,9 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     std::vector<cv::Point2f> &chessboardCorners,
     std::vector<cv::Point2f> &imageCorners) {
   std::vector<cv::Point2f> chessboardCornersTemp;
-  if (!findChessboardCorners(image, chessboardSize, chessboardCornersTemp)) {
+  cv::Rect leftHalfRect(0, 0, image.cols / 2, image.rows);
+  cv::Mat leftHalf = image(leftHalfRect);
+  if (!findChessboardCorners(leftHalf, chessboardSize, chessboardCornersTemp)) {
     return false;
   }
 
@@ -296,7 +298,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
       cv::Mat(chessboardCornersOrig), true);
 #endif
 
-  displayResult("temp", temp, true);
+  displayResult("before", temp, true);
 #if 1
   {
     int r = 1;
@@ -381,7 +383,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 
   corners_info_t ic(imageCorners);
   cv::warpPerspective(temp, result, H, cv::Size(ic.width, ic.height));
-  displayResult("temp", result, true);
+  displayResult("after", result, true);
   chessboardCorners = targetRectangleCorners;
   for (auto &P : chessboardCorners) {
     P.x += shift.width;
