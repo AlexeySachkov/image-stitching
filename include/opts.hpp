@@ -5,6 +5,11 @@
 #include <string>
 #include <vector>
 
+enum class StitchingMode {
+  OneCommonTarget,
+  ChainOfTargets
+};
+
 struct command_line_opts {
   unsigned verbosity = 0;
   bool interactive = false;
@@ -18,6 +23,8 @@ struct command_line_opts {
   int board_height = 3;
 
   int angle = 1;
+
+  StitchingMode mode = StitchingMode::ChainOfTargets;
 
   std::string output_file = "conf.xml";
 };

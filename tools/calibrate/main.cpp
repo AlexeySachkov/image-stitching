@@ -241,27 +241,68 @@ int main(int argc, char *argv[])
   for (size_t i = 0; i < opts.file_paths.size(); ++i) {
     Mat image = images[i];
 
-    if (!projectToTheFloor(image, Size(opts.board_width, opts.board_height),
-        projected[i], chessboard_corners_orig_left[i], chessboard_corners_target_left[i],
-        image_corners_target[i])) {
+    if (!projectToTheFloor(image, chessboardSize,
+        projected[i], chessboard_corners_orig_left[i],
+        chessboard_corners_target_left[i], image_corners_target[i])) {
       cout << "Failed to handle image #" << i + 1 << "!" << endl;
       return -1;
     }
 
-    WITH_DEBUG(cout << "Successfully projected " << i << "-th image to the floor" << endl;)
+    WITH_DEBUG(
+      cout << "Successfully projected " << i
+          << "-th image to the floor" << endl;
+    )
   }
 
-  vector<Point2f> chessboard_corners = chessboard_corners_target_left.front();
+  if (StitchingMode::ChainOfTargets == opts.mode) {
+    for (size_t i = 0; i < opts.file_paths.size() - 1; ++i) {
+      Rect rightHalfRect(
+          projected[i].cols / 2, 0, projected[i].cols / 2, projected[i].rows);
+      Mat rightHalf = projected[i](rightHalfRect);
+
+      vector<Point2f> chessboard_points;
+      if (!findChessboardCorners(rightHalf, chessboardSize, chessboard_points)) {
+        cout << "Failed to detect right chessboard on image #"
+            << i + 1 << "!" << endl;
+        return 2;
+      }
+      WITH_DEBUG(
+        cout << "Right chessboard: " <<  endl;
+        for (auto &row : chessboard_points) {
+          cout << "\t: " << row << endl;
+        }
+      )
+      chessboard_corners_orig_right[i] = extractCorners(
+          orderChessboardCorners(chessboard_points, chessboardSize));
+      for (auto &P : chessboard_corners_orig_right[i]) {
+        P.x += projected[i].cols / 2;
+      }
+    }
+  }
+
+  // We have two chessboards per image: left and right
+  // Left is used to project image to the floor pane
+  // Right is used to connect image with the next one: left board on i-th
+  // image should be placed at right board on (i-1)-th image
+
+  chessboard_corners_target_right[0] = chessboard_corners_orig_right[0];
   Size result_size(projected.front().cols, projected.front().rows);
 
   for (size_t i = 1; i < opts.file_paths.size(); ++i) {
+    auto target_chessboard_corners =
+      (StitchingMode::ChainOfTargets == opts.mode)
+          ? chessboard_corners_target_right[i - 1]
+          : chessboard_corners_target_left[i - 1];
+
+    // Left chessboard of i-th image should be placed at right chessboard
+    // on (i-1)-th image
     WITH_DEBUG(
       cout << "Trying to find homography between " << endl
         << chessboard_corners_target_left[i] << " and " << endl
-        << chessboard_corners << endl;
+        << target_chessboard_corners << endl;
     )
-    Mat preH = findHomography(chessboard_corners_target_left[i], chessboard_corners,
-        CV_RANSAC);
+    Mat preH = findHomography(chessboard_corners_target_left[i],
+        target_chessboard_corners, CV_RANSAC);
 
     Mat temp;
     perspectiveTransform(Mat(image_corners_target[i]), temp, preH);
@@ -293,19 +334,43 @@ int main(int argc, char *argv[])
       dy = fabs(minY);
     }
 
-    for (int j = 0; j < chessboard_corners.size(); ++j) {
-      chessboard_corners[j].x += dx;
-      chessboard_corners[j].y += dy;
+    for (int j = 0; j < i; ++j) {
+      for (size_t h = 0; h < chessboard_corners_target_left[j].size(); ++h) {
+        chessboard_corners_target_left[j][h].x += dx;
+        chessboard_corners_target_left[j][h].y += dy;
+      }
+    }
+    if (StitchingMode::ChainOfTargets == opts.mode) {
+      for (int j = 0; j < i; ++j) {
+        for (size_t h = 0; h < chessboard_corners_target_right[j].size(); ++h) {
+          chessboard_corners_target_right[j][h].x += dx;
+          chessboard_corners_target_right[j][h].y += dy;
+        }
+      }
     }
 
-    for (int j = 0; j <= i; ++j) {
+    H[0] = findHomography(chessboard_corners_orig_left[0],
+        chessboard_corners_target_left[0], CV_RANSAC);
+    for (int j = 1; j <= i; ++j) {
+      auto local_target_chessboard_corners =
+          (StitchingMode::ChainOfTargets == opts.mode)
+              ? chessboard_corners_target_right[j - 1]
+              : chessboard_corners_target_left[j - 1];
+
       WITH_DEBUG(
         cout << "Trying to find homography between " << endl
-          << chessboard_corners_orig_left[i] << " and " << endl
-          << chessboard_corners << endl;
+          << chessboard_corners_orig_left[j] << " and " << endl
+          << local_target_chessboard_corners << endl;
       )
-      H[j] = findHomography(chessboard_corners_orig_left[j], chessboard_corners,
-          CV_RANSAC);
+      H[j] = findHomography(chessboard_corners_orig_left[j],
+          local_target_chessboard_corners, CV_RANSAC);
+    }
+
+    if (StitchingMode::ChainOfTargets == opts.mode) {
+      // chessboard_corners_target_right[i]
+      //     = warp(chessboard_corners_orig_right[i], H[i])
+      perspectiveTransform(Mat(chessboard_corners_orig_right[i]), temp, H[i]);
+      chessboard_corners_target_right[i] = (vector<Point2f>)temp;
     }
 
     result_size = Size(max((float)result_size.width, maxX + dx),

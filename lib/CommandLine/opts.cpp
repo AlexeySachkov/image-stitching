@@ -72,6 +72,22 @@ bool parse_command_line_opts(int argc, char *argv[]) {
       }
 
       opts.angle = atoi(arg.substr(pos + 1).c_str());
+    } else if (arg.find("--mode") == 0) {
+      std::string::size_type pos = arg.find("=");
+      if (std::string::npos == pos) {
+        valid = false;
+        break;
+      }
+
+      std::string mode_str = arg.substr(pos + 1);
+      if ("extend" == mode_str) {
+        opts.mode = StitchingMode::OneCommonTarget;
+      } else if ("chain" == mode_str) {
+        opts.mode == StitchingMode::ChainOfTargets;
+      } else {
+        valid = false;
+        break;
+      }
     } else {
       // assume argument is a path to an image
       opts.file_paths.push_back(arg);
