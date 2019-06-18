@@ -193,47 +193,60 @@ int main(int argc, char *argv[])
       }
     } // End of step 1: disctorion was removed
 
+    Mat status(Size(80 * opts.file_paths.size(), 40), projected[0].type());
+    vector<Mat> frames;
+
     // Step 2: Find good frames for alignment and stitching
-    for (size_t i = 0; i < opts.file_paths.size() - 1; ++i) {
-      Mat frameL, frameR;
-      Mat tL, tR;
-      VideoCapture &videoL = videos[i], &videoR = videos[i + 1];
-      bool found_good_frame = false;
-      while (!found_good_frame) {
-        videoL >> tL;
-        videoR >> tR;
-        undistort(tL, frameL, cameraMatrix[i], distCoeffs[i]);
-        undistort(tR, frameR, cameraMatrix[i + 1], distCoeffs[i + 1]);
+    bool found_good_frames = false;
+    while (!found_good_frames) {
+      for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+        Mat t;
+        videos[i] >> t;
+        undistort(t, frames[i], cameraMatrix[i], distCoeffs[i]);
+      }
+      for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+        cv::Rect leftHalfRect(0, 0, frames[i].cols / 2, frames[i].rows);
+        cv::Rect rightHalfRect(frames[i].cols / 2, 0, frames[i].cols / 2, frames[i].rows);
+        Mat leftHalf = frames[i](leftHalfRect);
+        Mat rightHalf = frames[i](rightHalfRect);
 
-        bool chessboardL = findChessboardCorners(frameL, chessboardSize,
+        bool chessboardL = findChessboardCorners(leftHalf, chessboardSize,
             chessboard_corners_orig_left[i]);
-        bool chessboardR = findChessboardCorners(frameR, chessboardSize,
-            chessboard_corners_orig_left[i + 1]);
-
+        bool chessboardR = findChessboardCorners(rightHalf, chessboardSize,
+            chessboard_corners_orig_right[i]);
         // red or orange
-        Scalar color = chessboardL ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
+        Scalar colorL = chessboardL ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
+        Scalar colorR = chessboardR ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
 
         if (chessboardL && chessboardR) {
           float angle = angleToHorizon(chessboard_corners_orig_left[i],
               chessboardSize);
           if (angle < (float)opts.angle) {
-            color = Scalar(0, 255, 0); // green
-            found_good_frame = true;
-            images[i] = frameL;
-            images[i + 1] = frameR;
+            colorL = colorR = Scalar(0, 255, 0); // green
           } else if (angle < 2.0 * opts.angle) {
-            color = Scalar(0, 255, 255); // yellow
+            colorL = colorR = Scalar(0, 255, 255); // yellow
           }
-          putText(frameL, "Angle: " + std::to_string(angle), Point2f(10, 30),
+          putText(frames[i], "Angle: " + std::to_string(angle), Point2f(10, 30),
               FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
+
+          rectangle(frames[i], Point2f(0, 0), Point2f(frames[i].cols / 2, frames[i].rows),
+              colorL, 8);
+          rectangle(frames[i], Point2f(frames[i].cols / 2, 0), Point2f(frames[i].cols, frames[i].rows),
+              colorR, 8);
+          rectangle(status, Point2f(80 * i, 0), Point2f(80 * i, 40), colorL, CV_FILLED);
+          rectangle(status, Point2f(80 * i + 40, 0), Point2f(80 * (i + 1), 40), colorR, CV_FILLED);
         }
-        rectangle(frameL, Point2f(0, 0), Point2f(frameL.cols, frameL.rows),
-            color, 8);
-        rectangle(frameR, Point2f(0, 0), Point2f(frameR.cols, frameR.rows),
-            color, 8);
-        displayResult("Frame from camera " + std::to_string(i), frameL);
-        displayResult("Frame from camera " + std::to_string(i + 1), frameR);
-        cv::waitKey(30);
+      }
+      for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+        displayResult("Frame from camera " + std::to_string(i), frames[i]);
+        waitKey(30);
+      }
+      displayResult("Status", status);
+      char r = waitKey(30);
+      if (r == 'y') {
+        for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+          images[i] = frames[i];
+        }
       }
     }
   }
