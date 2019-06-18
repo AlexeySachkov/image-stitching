@@ -285,8 +285,11 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     std::vector<cv::Point2f> &chessboardCorners,
     std::vector<cv::Point2f> &imageCorners) {
   std::vector<cv::Point2f> chessboardCornersTemp;
+  // FIXME: search must be performed on the whole image
+  // Caller is responsible to crop input image if it wants to search for
+  // chessboard in a certain area
   cv::Rect leftHalfRect(0, 0, image.cols / 2, image.rows);
-  cv::Mat leftHalf = image(leftHalfRect);
+  cv::Mat leftHalf = (StitchingMode::ChainOfTargets == opts.mode) ? image(leftHalfRect) : image;
   if (!findChessboardCorners(leftHalf, chessboardSize, chessboardCornersTemp)) {
     return false;
   }
