@@ -93,7 +93,7 @@ std::vector<std::vector<cv::Point2f>> board(const cv::Size &size) {
 std::vector<std::vector<cv::Point2f>> transposedBoard(const cv::Size &size) {
   std::vector<std::vector<cv::Point2f>> result(size.height);
   for (int i = 0; i < size.height; ++i) {
-    result[i] = column(size.height - i, size.width, Direction::INC);
+    result[i] = column(i + 1, size.width, Direction::DEC);
   }
 
   return result;

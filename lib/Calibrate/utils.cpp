@@ -172,13 +172,13 @@ std::vector<std::vector<cv::Point2f>> orderChessboardCorners(
   bool needToReverseRows = false;
 
   if (isTransposed) {
-    // the top row should have the biggest X value, because it was the
-    // rightmost column before transpose
-    if (result[0][0].x < result[1][0].x)
+    // the top row should have the smallest X value, because it was the
+    // leftmost column before transpose
+    if (result[0][0].x > result[1][0].x)
       needToReverseRows = true;
-    // the leftmost column should have the smallest Y value, because it was
-    // the top top before transpose
-    if (result[0][0].y > result[0][1].y)
+    // the leftmost column should have the biggest Y value, because it was
+    // the bottom row before transpose
+    if (result[0][0].y < result[0][1].y)
       needToReverseColumns = true;
   } else {
     if (result[0][0].y > result[1][0].y)
@@ -283,7 +283,7 @@ float angleToHorizon(const std::vector<cv::Point2f> &chessboardCorners,
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
     std::vector<cv::Point2f> &chessboardCorners,
-    std::vector<cv::Point2f> &imageCorners) {
+    std::vector<cv::Point2f> &imageCorners, bool &isTransposed) {
   std::vector<cv::Point2f> chessboardCornersTemp;
   // FIXME: search must be performed on the whole image
   // Caller is responsible to crop input image if it wants to search for
@@ -302,11 +302,14 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
 #endif
 
   displayResult("before", temp, true);
-#if 1
+
+  bool t;
+  getPointsOrientation(chessboardCornersTemp, chessboardSize, t, isTransposed);
+  auto ordered = orderChessboardCorners(chessboardCornersTemp, chessboardSize);
+
+#if 0
   {
     int r = 1;
-    std::vector<std::vector<cv::Point2f>> ordered = orderChessboardCorners(
-        chessboardCornersTemp, chessboardSize);
     for (size_t i = 0; i < ordered.size(); ++i) {
       for (size_t j = 0; j < ordered[i].size(); ++j) {
         const cv::Point2f &P = ordered[i][j];
@@ -317,18 +320,14 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   }
 #endif
 
-  bool t, isTransposed;
-  getPointsOrientation(chessboardCornersTemp, chessboardSize, t, isTransposed);
-  auto ordered = orderChessboardCorners(chessboardCornersTemp, chessboardSize);
-
   // assume that we could esimate board size in pixel using two leftmost
   // points at the bottom of the chessboard
   cv::Point2f blp, blpn;
   if (isTransposed) {
     // image was transposed, so, instead of two leftmost points at the bottom
-    // we should use two bottom points in the rightmost column
-    blp = ordered[chessboardSize.height - 1][chessboardSize.width - 1];
-    blpn = ordered[chessboardSize.height - 2][chessboardSize.width - 1];
+    // we should use two upper points in the leftmost column
+    blp = ordered[0][0];
+    blpn = ordered[1][0];
   } else {
     blp = ordered[chessboardSize.height - 1][0];
     blpn = ordered[chessboardSize.height - 1][1];
@@ -357,9 +356,10 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   for (int i = 0; i < 4; ++i) {
     cv::line(temp, targetRectangleCorners[i],
         targetRectangleCorners[(i + 1) % 4], cv::Scalar(255, 0, 0), 5 + 2 * i);
-#if 1
+#if 0
     cv::circle(temp, targetRectangleCorners[i], 5 * (i + 1),
-        cv::Scalar(255, 255, 0), 5 + 2 * i);
+        cv::Scalar(255, 255, 0), 15 + 10 * i);
+    //displayResult("temp", temp, true);
 #endif
   }
 
@@ -370,11 +370,13 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::line(temp, currentRectangleCorners[i],
         currentRectangleCorners[(i + 1) % 4],
         cv::Scalar(0, 0, 255), 5 + 2 * i);
-#if 1
+#if 0
     cv::circle(temp, currentRectangleCorners[i], 10 * (i + 1),
         cv::Scalar(0, 255, 255), 5 + 2 * i);
+    //displayResult("temp", temp, true);
 #endif
   }
+  cv::imwrite("temp.jpg", temp);
 
   displayResult("temp", temp, true);
   //cv::imwrite("temp.jpg", temp);
@@ -387,6 +389,7 @@ bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
   corners_info_t ic(imageCorners);
   cv::warpPerspective(temp, result, H, cv::Size(ic.width, ic.height));
   displayResult("after", result, true);
+  cv::imwrite("projected.jpg", result);
   chessboardCorners = targetRectangleCorners;
   for (auto &P : chessboardCorners) {
     P.x += shift.width;

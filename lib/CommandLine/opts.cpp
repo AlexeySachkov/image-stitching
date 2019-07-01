@@ -38,14 +38,22 @@ bool parse_command_line_opts(int argc, char *argv[]) {
 
       opts.board_width = atoi(board_width.c_str());
       opts.board_height = atoi(board_height.c_str());
-    } else if (arg.find("--output") == 0 || arg.find("-o") == 0) {
+    } else if (arg.find("--c-conf") == 0) {
       std::string::size_type pos = arg.find("=");
       if (std::string::npos == pos) {
         valid = false;
         break;
       }
 
-      opts.output_file = arg.substr(pos + 1);
+      opts.calibrate_config = arg.substr(pos + 1);
+    } else if (arg.find("--s-conf") == 0) {
+      std::string::size_type pos = arg.find("=");
+      if (std::string::npos == pos) {
+        valid = false;
+        break;
+      }
+
+      opts.stitch_config = arg.substr(pos + 1);
     } else if ("--video" == arg) {
       opts.video = true;
     } else if (arg.find("--delay") == 0) {
@@ -83,7 +91,7 @@ bool parse_command_line_opts(int argc, char *argv[]) {
       if ("extend" == mode_str) {
         opts.mode = StitchingMode::OneCommonTarget;
       } else if ("chain" == mode_str) {
-        opts.mode == StitchingMode::ChainOfTargets;
+        opts.mode = StitchingMode::ChainOfTargets;
       } else {
         valid = false;
         break;

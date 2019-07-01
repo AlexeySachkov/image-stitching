@@ -66,8 +66,48 @@ int main(int argc, char *argv[])
       }
     }
 
+    if (!opts.calibrate_config.empty()) {
+      FileStorage fs(opts.calibrate_config, FileStorage::READ);
+      if (!fs.isOpened()) {
+        cout << "Failed to open file " << opts.calibrate_config << endl;
+        return 4;
+      }
+
+      FileNode fCameraMatrix = fs["cameraMatrix"];
+      if (fCameraMatrix.type() != FileNode::SEQ) {
+        cout << "cameraMatrix is not a sequence!" << endl;
+        return 4;
+      }
+
+      for (size_t index = 0; index < min(fCameraMatrix.size(), opts.file_paths.size()); ++index) {
+        fCameraMatrix[index] >> cameraMatrix[index];
+        WITH_DEBUG(
+          cout << "Read matrix " << endl << cameraMatrix[index] << endl;
+        )
+      }
+
+      FileNode fDistCoeffs = fs["distCoeffs"];
+      if (fDistCoeffs.type() != FileNode::SEQ) {
+        cout << "distCoeffs is not a sequence!" << endl;
+        return 4;
+      }
+      for (size_t index = 0; index < min(fDistCoeffs.size(), opts.file_paths.size()); ++index) {
+        fDistCoeffs[index] >> distCoeffs[index];
+        WITH_DEBUG(
+          cout << "Read matrix " << endl << distCoeffs[index] << endl;
+        )
+      }
+
+      fs.release();
+    }
+
     // Step #1. Remove distortion
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {
+      if (!distCoeffs[i].empty() && !cameraMatrix[i].empty()) {
+        WITH_DEBUG(cout << "re-using existing undistort coeffs for camera #" << i << endl;)
+        continue; // Use values from config file
+      }
+
       VideoCapture &video = videos[i];
 
       UState state = UState::NOT_STARTED;
@@ -194,7 +234,9 @@ int main(int argc, char *argv[])
     } // End of step 1: disctorion was removed
 
     Mat status(Size(80 * opts.file_paths.size(), 40), projected[0].type());
-    vector<Mat> frames;
+    vector<Mat> frames(opts.file_paths.size());
+
+    WITH_DEBUG(cout << "start searching for good frames" << endl;)
 
     // Step 2: Find good frames for alignment and stitching
     bool found_good_frames = false;
@@ -207,13 +249,15 @@ int main(int argc, char *argv[])
       for (size_t i = 0; i < opts.file_paths.size(); ++i) {
         cv::Rect leftHalfRect(0, 0, frames[i].cols / 2, frames[i].rows);
         cv::Rect rightHalfRect(frames[i].cols / 2, 0, frames[i].cols / 2, frames[i].rows);
-        Mat leftHalf = frames[i](leftHalfRect);
+        Mat leftHalf = (StitchingMode::ChainOfTargets == opts.mode) ? frames[i](leftHalfRect) : frames[i];
         Mat rightHalf = frames[i](rightHalfRect);
 
         bool chessboardL = findChessboardCorners(leftHalf, chessboardSize,
             chessboard_corners_orig_left[i]);
-        bool chessboardR = findChessboardCorners(rightHalf, chessboardSize,
-            chessboard_corners_orig_right[i]);
+        bool chessboardR = true;
+        if (StitchingMode::ChainOfTargets == opts.mode)
+          chessboardR = findChessboardCorners(rightHalf, chessboardSize,
+              chessboard_corners_orig_right[i]);
         // red or orange
         Scalar colorL = chessboardL ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
         Scalar colorR = chessboardR ? Scalar(0, 0, 255) : Scalar(0, 165, 255);
@@ -228,38 +272,46 @@ int main(int argc, char *argv[])
           }
           putText(frames[i], "Angle: " + std::to_string(angle), Point2f(10, 30),
               FONT_HERSHEY_SIMPLEX, 1.0, Scalar(255, 0 , 0));
-
-          rectangle(frames[i], Point2f(0, 0), Point2f(frames[i].cols / 2, frames[i].rows),
-              colorL, 8);
+        }
+        rectangle(frames[i], Point2f(0, 0), Point2f(frames[i].cols / 2, frames[i].rows),
+            colorL, 8);
+        if (StitchingMode::ChainOfTargets == opts.mode) {
           rectangle(frames[i], Point2f(frames[i].cols / 2, 0), Point2f(frames[i].cols, frames[i].rows),
               colorR, 8);
-          rectangle(status, Point2f(80 * i, 0), Point2f(80 * i, 40), colorL, CV_FILLED);
           rectangle(status, Point2f(80 * i + 40, 0), Point2f(80 * (i + 1), 40), colorR, CV_FILLED);
         }
+        // FIXME: status image is wrong
+        rectangle(status, Point2f(80 * i, 0), Point2f(80 * i, 40), colorL, 20);
       }
       for (size_t i = 0; i < opts.file_paths.size(); ++i) {
         displayResult("Frame from camera " + std::to_string(i), frames[i]);
         waitKey(30);
       }
-      displayResult("Status", status);
+      imshow("Status", status);
       char r = waitKey(30);
       if (r == 'y') {
         for (size_t i = 0; i < opts.file_paths.size(); ++i) {
           images[i] = frames[i];
         }
+        found_good_frames = true;
       }
     }
   }
+  WITH_DEBUG(cout << "start calculating coeffs for stitching" << endl;)
 
+  vector<char> isTransposed(opts.file_paths.size());
   for (size_t i = 0; i < opts.file_paths.size(); ++i) {
     Mat image = images[i];
 
+    bool temp;
     if (!projectToTheFloor(image, chessboardSize,
         projected[i], chessboard_corners_orig_left[i],
-        chessboard_corners_target_left[i], image_corners_target[i])) {
+        chessboard_corners_target_left[i], image_corners_target[i], temp)) {
       cout << "Failed to handle image #" << i + 1 << "!" << endl;
       return -1;
     }
+    isTransposed[i] = temp;
+    //chessboard_corners_target_left[i] = chessboard_corners_orig_left[i];
 
     WITH_DEBUG(
       cout << "Successfully projected " << i
@@ -269,9 +321,10 @@ int main(int argc, char *argv[])
 
   if (StitchingMode::ChainOfTargets == opts.mode) {
     for (size_t i = 0; i < opts.file_paths.size() - 1; ++i) {
-      Rect rightHalfRect(
-          projected[i].cols / 2, 0, projected[i].cols / 2, projected[i].rows);
-      Mat rightHalf = projected[i](rightHalfRect);
+      Rect rightHalfRect = Rect(images[i].cols / 2, 0,
+              images[i].cols / 2, images[i].rows);
+      Mat rightHalf = images[i](rightHalfRect);
+      displayResult("right half", rightHalf, true);
 
       vector<Point2f> chessboard_points;
       if (!findChessboardCorners(rightHalf, chessboardSize, chessboard_points)) {
@@ -288,8 +341,27 @@ int main(int argc, char *argv[])
       chessboard_corners_orig_right[i] = extractCorners(
           orderChessboardCorners(chessboard_points, chessboardSize));
       for (auto &P : chessboard_corners_orig_right[i]) {
-        P.x += projected[i].cols / 2;
+        P.x += images[i].cols / 2;
       }
+
+#if 1
+  {
+    bool K = isTransposed[i];
+    Mat temp;
+    images[i].copyTo(temp);
+    auto ordered = orderChessboardCorners(chessboard_points, chessboardSize);
+    int r = 1;
+    for (size_t i = 0; i < ordered.size(); ++i) {
+      for (size_t j = 0; j < ordered[i].size(); ++j) {
+        cv::Point2f &P = ordered[i][j];
+        P.x += temp.cols / 2;
+        cv::circle(temp, P, (r * 5), cv::Scalar(200, 250, 250), 3);
+        ++r;
+      }
+    }
+    displayResult("right", temp, true);
+  }
+#endif
     }
   }
 
@@ -298,19 +370,35 @@ int main(int argc, char *argv[])
   // Right is used to connect image with the next one: left board on i-th
   // image should be placed at right board on (i-1)-th image
 
-  chessboard_corners_target_right[0] = chessboard_corners_orig_right[0];
+  if (StitchingMode::ChainOfTargets == opts.mode) {
+    Rect rightHalfRect = Rect(projected[0].cols / 2, 0,
+            projected[0].cols / 2, projected[0].rows);
+    Mat rightHalf = projected[0](rightHalfRect);
+
+    vector<Point2f> chessboard_points;
+    if (!findChessboardCorners(rightHalf, chessboardSize, chessboard_points)) {
+      cout << "Failed to detect right chessboard on image #"
+          << 1 << "!" << endl;
+      return 2;
+    }
+    chessboard_corners_target_right[0] = extractCorners(
+        orderChessboardCorners(chessboard_points, chessboardSize));
+    for (auto &P : chessboard_corners_target_right[0]) {
+      P.x += projected[0].cols / 2;
+    }
+  }
   Size result_size(projected.front().cols, projected.front().rows);
 
   for (size_t i = 1; i < opts.file_paths.size(); ++i) {
     auto target_chessboard_corners =
       (StitchingMode::ChainOfTargets == opts.mode)
           ? chessboard_corners_target_right[i - 1]
-          : chessboard_corners_target_left[i - 1];
+          : chessboard_corners_target_left[0];
 
     // Left chessboard of i-th image should be placed at right chessboard
     // on (i-1)-th image
     WITH_DEBUG(
-      cout << "Trying to find homography between " << endl
+      cout << "Initial estimate: Trying to find homography between " << endl
         << chessboard_corners_target_left[i] << " and " << endl
         << target_chessboard_corners << endl;
     )
@@ -347,11 +435,9 @@ int main(int argc, char *argv[])
       dy = fabs(minY);
     }
 
-    for (int j = 0; j < i; ++j) {
-      for (size_t h = 0; h < chessboard_corners_target_left[j].size(); ++h) {
-        chessboard_corners_target_left[j][h].x += dx;
-        chessboard_corners_target_left[j][h].y += dy;
-      }
+    for (size_t h = 0; h < chessboard_corners_target_left[0].size(); ++h) {
+      chessboard_corners_target_left[0][h].x += dx;
+      chessboard_corners_target_left[0][h].y += dy;
     }
     if (StitchingMode::ChainOfTargets == opts.mode) {
       for (int j = 0; j < i; ++j) {
@@ -364,14 +450,19 @@ int main(int argc, char *argv[])
 
     H[0] = findHomography(chessboard_corners_orig_left[0],
         chessboard_corners_target_left[0], CV_RANSAC);
+    WITH_DEBUG(
+      cout << "Adjust: Trying to find homography between " << endl
+        << chessboard_corners_orig_left[0] << " and " << endl
+        << chessboard_corners_target_left[0] << endl;
+    )
     for (int j = 1; j <= i; ++j) {
       auto local_target_chessboard_corners =
           (StitchingMode::ChainOfTargets == opts.mode)
               ? chessboard_corners_target_right[j - 1]
-              : chessboard_corners_target_left[j - 1];
+              : chessboard_corners_target_left[0];
 
       WITH_DEBUG(
-        cout << "Trying to find homography between " << endl
+        cout << "Adjust: Trying to find homography between " << endl
           << chessboard_corners_orig_left[j] << " and " << endl
           << local_target_chessboard_corners << endl;
       )
@@ -379,18 +470,31 @@ int main(int argc, char *argv[])
           local_target_chessboard_corners, CV_RANSAC);
     }
 
+
+    cout << "result_size before: " << result_size << std::endl;
+    cout << "maxX, dx, maxY, dy " << maxX << " " << dx << " " << maxY << " " << dy << std::endl;
+    result_size = Size(max((float)result_size.width, maxX),
+      max((float)result_size.height, maxY));
+    result_size.width += dx;
+    result_size.height += dy;
+    cout << "result_size: " << result_size << std::endl;
+
+    Mat intermediate(result_size, projected[0].type());
+    for (int j = 0; j <= i; ++j) {
+      warpPerspective(images[j], intermediate, H[j], result_size, INTER_LINEAR,
+          BORDER_TRANSPARENT);
+    }
     if (StitchingMode::ChainOfTargets == opts.mode) {
       // chessboard_corners_target_right[i]
       //     = warp(chessboard_corners_orig_right[i], H[i])
-      perspectiveTransform(Mat(chessboard_corners_orig_right[i]), temp, H[i]);
-      chessboard_corners_target_right[i] = (vector<Point2f>)temp;
+      Mat t;
+      perspectiveTransform(Mat(chessboard_corners_orig_right[i]), t, H[i]);
+      chessboard_corners_target_right[i] = (vector<Point2f>)t;
     }
-
-    result_size = Size(max((float)result_size.width, maxX + dx),
-      max((float)result_size.height, maxY + dy));
+    displayResult("intermediate", intermediate, true);
   }
 
-  FileStorage fs(opts.output_file, FileStorage::WRITE);
+  FileStorage fs(opts.stitch_config, FileStorage::WRITE);
 
   fs << "video" << opts.video;
   fs << "file_paths" << "[";

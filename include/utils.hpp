@@ -51,7 +51,7 @@ bool findChessboardCorners(const cv::Mat &image,
 bool projectToTheFloor(const cv::Mat &image, const cv::Size &chessboardSize,
     cv::Mat &result, std::vector<cv::Point2f> &chessboardCornersOrig,
     std::vector<cv::Point2f> &chessboardCorners,
-    std::vector<cv::Point2f> &imageCorners);
+    std::vector<cv::Point2f> &imageCorners, bool &isTransposed);
 
 void computeHomography(const std::vector<cv::Point2f> &from,
     const std::vector<cv::Point2f> &to, const cv::Size &size_from,

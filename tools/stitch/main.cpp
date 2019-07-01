@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 using namespace std;
 using namespace cv;
@@ -22,10 +23,10 @@ int main(int argc, char *argv[])
     return 1;
   }
 
-  FileStorage fs(opts.output_file, FileStorage::READ);
+  FileStorage fs(opts.stitch_config, FileStorage::READ);
 
   if (!fs.isOpened()) {
-    cout << "Failed to open configuration file " << opts.output_file << endl;
+    cout << "Failed to open configuration file " << opts.stitch_config << endl;
     return 2;
   }
 
@@ -106,14 +107,22 @@ int main(int argc, char *argv[])
     Mat img0 = imread(opts.file_paths.front());
     Mat result(result_size, img0.type());
 
+    auto start = chrono::steady_clock::now();
+    auto end = chrono::steady_clock::now();
+
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {
       Mat image = imread(opts.file_paths[i]);
+      start = chrono::steady_clock::now();
       warpPerspective(image, result, H[i], result_size, INTER_LINEAR,
           BORDER_TRANSPARENT);
+      end = chrono::steady_clock::now();
+      cout << chrono::duration<double, milli>(end - start).count() << endl;
       displayResult("temp", result, true);
     }
 
+
     displayResult("Final", result, true);
+    imwrite("final.jpg", result);
   } else {
     vector<VideoCapture> videos(opts.file_paths.size());
     for (size_t i = 0; i < opts.file_paths.size(); ++i) {

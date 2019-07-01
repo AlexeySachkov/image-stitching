@@ -26,7 +26,8 @@ struct command_line_opts {
 
   StitchingMode mode = StitchingMode::ChainOfTargets;
 
-  std::string output_file = "conf.xml";
+  std::string calibrate_config;
+  std::string stitch_config = "stitch.conf.xml";
 };
 
 bool parse_command_line_opts(int argc, char *argv[]);
