@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install libopencv-dev
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Checkout submodules
+        run: |
+          cd ${{ github.workspace }}
+          git submodule update --init --recursive
+      - name: Configure
+        run: |
+          mkdir ${{ github.workspace }}/build
+          cd ${{ github.workspace }}/build
+          cmake ..
+      - name: Build
+        run: |
+          cd ${{ github.workspace }}/build
+          cmake --build .
+
